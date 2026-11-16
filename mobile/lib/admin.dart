@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import 'api.dart';
 import 'ui.dart';
 
-// The server remains the authority for roles; showing this screen never grants admin access.
+/// Hosts regional moderation for administrator accounts on mobile and web.
+///
+/// Client role checks guide navigation; every privileged operation still requires
+/// server authorization. No member workflow is exposed through this screen.
 class AdminScreen extends StatefulWidget {
   final Api api;
   final Future<void> Function() onSignOut;
@@ -440,6 +443,7 @@ class _StatusBadge extends StatelessWidget {
   );
 }
 
+// Keep a review's evidence and decision state scoped to one route, then reload the inbox on return.
 class _AdminReportScreen extends StatefulWidget {
   final Api api;
   final Json report;
@@ -748,6 +752,7 @@ class _PrivateReportImageState extends State<_PrivateReportImage>
     super.dispose();
   }
 
+  // Evidence opens only on demand; discard late results if its region or foreground lifetime changes.
   Future<void> _load() async {
     final generation = ++_generation;
     final country = widget.api.country;
@@ -856,6 +861,7 @@ class _ReviewDialogState extends State<_ReviewDialog> {
     super.dispose();
   }
 
+  // A lifetime ban requires both a review note and an explicit evidence acknowledgement.
   void _confirm() {
     final valid = _form.currentState!.validate();
     setState(() => _missingConfirmation = widget.ban && !_confirmed);

@@ -1,13 +1,15 @@
 import { authBase, errorMessage, readableDate, reasonLabels, validateDecision, validOAuthReturn, visibleReports } from './helpers.mjs';
 import { PrivateEvidence } from './private-evidence.mjs';
 
-// Sensitive session material stays in this module's memory, never localStorage.
+// Access tokens and fetched reports stay in memory. Only the pending PKCE exchange
+// uses tab-scoped sessionStorage, because its verifier must survive the provider redirect.
 let token = null;
 let authConfig = null;
 let reports = [];
 let selectedId = null;
 let selectedDecision = null;
 let country = 'BD';
+// Every inbox reload, sign-out and background transition invalidates older inbox responses.
 let loadVersion = 0;
 let submitting = false;
 let demo = false;
@@ -266,7 +268,8 @@ function openDecision(decision) {
   $('review-note').focus();
 }
 
-// Lock submission until the server responds to avoid duplicate moderation decisions.
+// Disable repeated clicks while waiting; the server's locked pending-report check
+// is what prevents competing administrators from recording multiple decisions.
 async function submitDecision(event) {
   event.preventDefault();
   if (submitting) return;
@@ -307,6 +310,7 @@ async function startOAuth(provider) {
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
     const challenge = btoa(String.fromCharCode(...new Uint8Array(digest))).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
     const base = authBase(authConfig.supabase_url);
+    // The random flow value binds our return URL; the auth provider handles its own OAuth state.
     sessionStorage.setItem('blood-connection-pkce', JSON.stringify({ verifier, state, base, created: Date.now() }));
     const callback = new URL('/admin/', location.origin);
     callback.searchParams.set('flow', state);
@@ -368,6 +372,7 @@ $('enter-demo').addEventListener('click', async () => {
 $('sign-out').addEventListener('click', async () => {
   const previousToken = token;
   clearSession();
+  // Clear local evidence first; a slow provider logout must not leave it visible.
   notice('You have signed out. Report evidence has been cleared from this page.');
   if (authConfig && previousToken && !previousToken.startsWith('demo-')) {
     try { await fetch(`${authBase(authConfig.supabase_url)}/auth/v1/logout?scope=local`, { method: 'POST', headers: { apikey: authConfig.supabase_anon_key, Authorization: `Bearer ${previousToken}` }, signal: AbortSignal.timeout(10000) }); } catch { /* Local sign-out remains effective if the auth server is temporarily unavailable. */ }

@@ -16,6 +16,8 @@ export class PrivateEvidence {
     this.active.clear();
   }
 
+  // fetchImage receives a cancellation signal and returns a Blob. A superseded load
+  // returns null; a current failure throws so the active report can show a retry message.
   async load(fetchImage) {
     const version = this.version;
     const controller = new AbortController();
