@@ -58,6 +58,7 @@ Future<void> mount(
   Size size = const Size(1024, 900),
   double scale = 1,
   bool reduceMotion = false,
+  ValueNotifier<bool>? motionSetting,
   Json me = profile,
   Future<Json> Function()? refresh,
   SearchTiles? tiles,
@@ -70,13 +71,21 @@ Future<void> mount(
   await tester.pumpWidget(
     MaterialApp(
       theme: appTheme(),
-      builder: (context, child) => MediaQuery(
-        data: MediaQuery.of(context).copyWith(
-          textScaler: TextScaler.linear(scale),
-          disableAnimations: reduceMotion,
-        ),
-        child: child!,
-      ),
+      builder: (context, child) {
+        Widget media(bool reduced) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaler: TextScaler.linear(scale),
+            disableAnimations: reduced,
+          ),
+          child: child!,
+        );
+        return motionSetting == null
+            ? media(reduceMotion)
+            : ValueListenableBuilder<bool>(
+                valueListenable: motionSetting,
+                builder: (context, reduced, child) => media(reduced),
+              );
+      },
       home: Scaffold(
         body: SearchScreen(
           api: api,
@@ -92,6 +101,109 @@ Future<void> mount(
 }
 
 void main() {
+  testWidgets(
+    'reduced-motion searching stays readable without an animated spinner',
+    (tester) async {
+      final api = SearchApi();
+      await mount(tester, api, reduceMotion: true);
+      final pending = Completer<List<Json>>();
+      api.answer = (_) => pending.future;
+      final expandBefore = tester.getRect(
+        find.byKey(const Key('expand-donors')),
+      );
+      await tester.tap(find.byKey(const ValueKey('blood-group-A+')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('donor-search-loading')), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(find.byType(LinearProgressIndicator), findsNothing);
+      expect(find.text('Finding donors…'), findsOneWidget);
+      expect(
+        tester.getRect(find.byKey(const Key('expand-donors'))),
+        expandBefore,
+      );
+      expect(tester.hasRunningAnimations, isFalse);
+      pending.complete([donor('new', group: 'A+')]);
+      await tester.pumpAndSettle();
+      expect(find.text('Donor new'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
+    'rapid filters discard old actions while preserving the map and pinned controls',
+    (tester) async {
+      final api = SearchApi();
+      await mount(tester, api);
+      final originalMap = tester.element(find.byType(FlutterMap));
+      final expandBefore = tester.getRect(
+        find.byKey(const Key('expand-donors')),
+      );
+      final aReply = Completer<List<Json>>();
+      final bReply = Completer<List<Json>>();
+      api.answer = (query) =>
+          query['blood_type'] == 'A+' ? aReply.future : bReply.future;
+      await tester.tap(find.byKey(const ValueKey('blood-group-A+')));
+      await tester.pump();
+      expect(find.text('Donor one'), findsNothing);
+      expect(find.text('Request donor'), findsNothing);
+      expect(tester.element(find.byType(FlutterMap)), same(originalMap));
+      expect(
+        tester.getRect(find.byKey(const Key('expand-donors'))),
+        expandBefore,
+      );
+      aReply.complete([donor('first reply', group: 'A+')]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 40));
+      expect(find.text('Donor first reply'), findsOneWidget);
+      // Replace the result while its finite reveal is still running: no outgoing
+      // card or request callback may remain mounted during the next query.
+      await tester.tap(find.byKey(const ValueKey('blood-group-B+')));
+      await tester.pump();
+      expect(find.text('Donor first reply'), findsNothing);
+      expect(find.text('Request donor'), findsNothing);
+      bReply.complete([donor('latest reply', group: 'B+')]);
+      await tester.pumpAndSettle();
+      expect(find.text('Donor latest reply'), findsOneWidget);
+      expect(tester.element(find.byType(FlutterMap)), same(originalMap));
+      expect(
+        tester.getRect(find.byKey(const Key('expand-donors'))),
+        expandBefore,
+      );
+      expect(api.queries, hasLength(3));
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets('turning reduced motion on settles camera and sheet actions', (
+    tester,
+  ) async {
+    final setting = ValueNotifier(false);
+    addTearDown(setting.dispose);
+    await mount(tester, SearchApi(), motionSetting: setting);
+    final map = tester
+        .widget<FlutterMap>(find.byType(FlutterMap))
+        .mapController!;
+    final before = map.camera.zoom;
+    await tester.tap(find.byTooltip('Zoom in'));
+    await tester.tap(find.byKey(const Key('expand-donors')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 70));
+    expect(map.camera.zoom, lessThan(before + 1));
+    setting.value = true;
+    await tester.pump();
+    expect(map.camera.zoom, closeTo(before + 1, .000001));
+    final sheet = tester
+        .widget<DraggableScrollableSheet>(find.byKey(const Key('donor-sheet')))
+        .controller!;
+    final stoppedExtent = sheet.size;
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(map.camera.zoom, closeTo(before + 1, .000001));
+    expect(sheet.size, stoppedExtent);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('zoom eases briefly and touching the map cancels camera motion', (
     tester,
   ) async {

@@ -89,13 +89,23 @@ class _SearchScreenState extends State<SearchScreen>
   @override
   void initState() {
     super.initState();
-    cameraMotion = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 280),
-    );
+    cameraMotion = AnimationController(vsync: this, duration: motionTravel);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) search();
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // A preference change applies to an in-flight camera action too; gesture
+    // cancellations remain stopped at the user's chosen position.
+    if (MediaQuery.disableAnimationsOf(context)) {
+      if (cameraMotion.isAnimating) cameraMotion.value = 1;
+      // Stop a sheet animation or fling at its current visible extent rather
+      // than replaying an old target after a person has dragged the sheet.
+      if (sheet.isAttached) sheet.jumpTo(sheet.size);
+    }
   }
 
   @override
@@ -369,11 +379,7 @@ class _SearchScreenState extends State<SearchScreen>
       sheet.jumpTo(extent);
       return;
     }
-    sheet.animateTo(
-      extent,
-      duration: const Duration(milliseconds: 260),
-      curve: Curves.easeOutCubic,
-    );
+    sheet.animateTo(extent, duration: motionTravel, curve: Curves.easeOutCubic);
   }
 
   // Selecting an area reveals its real donor cards without re-querying from the map's camera position.
@@ -545,10 +551,13 @@ class _SearchScreenState extends State<SearchScreen>
                   height: (42 + 12 * scale).clamp(54, 82),
                   // A small selection emphasis preserves marker geometry and honors reduced motion.
                   child: AnimatedScale(
+                    // Reused map slots must not inherit another area's selection
+                    // animation when offscreen markers are culled or reordered.
+                    key: ValueKey(
+                      'area-motion-${area.id}-${MediaQuery.disableAnimationsOf(context)}',
+                    ),
                     scale: selectedArea == area.id ? 1.04 : 1,
-                    duration: MediaQuery.disableAnimationsOf(context)
-                        ? Duration.zero
-                        : const Duration(milliseconds: 160),
+                    duration: motionDuration(context, motionPress),
                     curve: Curves.easeOutCubic,
                     child: Semantics(
                       button: true,
@@ -741,9 +750,18 @@ class _SearchScreenState extends State<SearchScreen>
                           borderRadius: BorderRadius.circular(3),
                         ),
                       ),
-                      // Visible progress stays in the pinned header even when the list is collapsed.
-                      if (busy && !MediaQuery.disableAnimationsOf(context))
-                        const LinearProgressIndicator(minHeight: 2),
+                      // Reserve the progress slot so loading never shifts the
+                      // header controls. Reduced motion keeps a static accent.
+                      SizedBox(
+                        key: const Key('search-progress-slot'),
+                        height: 2,
+                        width: double.infinity,
+                        child: !busy
+                            ? null
+                            : MediaQuery.disableAnimationsOf(context)
+                            ? const ColoredBox(color: red)
+                            : const LinearProgressIndicator(minHeight: 2),
+                      ),
                       Expanded(
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -815,33 +833,50 @@ class _SearchScreenState extends State<SearchScreen>
             ),
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
-              sliver: SliverList.list(
-                children: [
-                  if (selectedArea != null)
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: TextButton.icon(
-                        key: const Key('all-donor-areas'),
-                        onPressed: () => selectArea(null),
-                        icon: const Icon(Icons.layers_outlined, size: 18),
-                        label: const Text('All areas'),
+              // Replace old results immediately, then reveal only the current
+              // sliver. An outgoing crossfade would keep stale donor actions alive.
+              sliver: TweenAnimationBuilder<double>(
+                key: ValueKey(
+                  'results-$generation-$selectedArea-$busy-${MediaQuery.disableAnimationsOf(context)}',
+                ),
+                tween: Tween(
+                  begin: MediaQuery.disableAnimationsOf(context)
+                      ? 1
+                      : motionEntryOpacity,
+                  end: 1,
+                ),
+                duration: motionDuration(context, motionState),
+                curve: Curves.easeOutCubic,
+                builder: (context, opacity, child) =>
+                    SliverOpacity(opacity: opacity, sliver: child!),
+                child: SliverList.list(
+                  children: [
+                    if (selectedArea != null)
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          key: const Key('all-donor-areas'),
+                          onPressed: () => selectArea(null),
+                          icon: const Icon(Icons.layers_outlined, size: 18),
+                          label: const Text('All areas'),
+                        ),
                       ),
-                    ),
-                  if (tileError) ...[
-                    const Notice(
-                      'Map tiles unavailable. Your donor list still works.',
-                      icon: Icons.map_outlined,
-                    ),
-                    TextButton(
-                      onPressed: () => setState(() {
-                        tileError = false;
-                        tileRevision++;
-                      }),
-                      child: const Text('Retry map'),
-                    ),
+                    if (tileError) ...[
+                      const Notice(
+                        'Map tiles unavailable. Your donor list still works.',
+                        icon: Icons.map_outlined,
+                      ),
+                      TextButton(
+                        onPressed: () => setState(() {
+                          tileError = false;
+                          tileRevision++;
+                        }),
+                        child: const Text('Retry map'),
+                      ),
+                    ],
+                    ...resultWidgets(),
                   ],
-                  ...resultWidgets(),
-                ],
+                ),
               ),
             ),
           ],
@@ -877,9 +912,30 @@ class _SearchScreenState extends State<SearchScreen>
         ),
       ],
       if (busy)
-        const Padding(
-          padding: EdgeInsets.all(24),
-          child: Center(child: CircularProgressIndicator()),
+        Padding(
+          key: const Key('donor-search-loading'),
+          padding: const EdgeInsets.symmetric(vertical: 24),
+          child: Column(
+            children: [
+              SizedBox(
+                width: 48,
+                height: 48,
+                child: MediaQuery.disableAnimationsOf(context)
+                    ? const Icon(Icons.travel_explore, color: teal, size: 32)
+                    : const Padding(
+                        padding: EdgeInsets.all(8),
+                        child: CircularProgressIndicator(strokeWidth: 3),
+                      ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Looking within ${radius.round()} km',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 4),
+              const Text('Checking who is available to help.'),
+            ],
+          ),
         ),
       if (donors != null) ...[
         if (visible.isEmpty) ...[
@@ -895,6 +951,7 @@ class _SearchScreenState extends State<SearchScreen>
         ],
         for (final donor in visible) ...[
           Card(
+            key: ValueKey('donor-card-${donor['id']}'),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -917,12 +974,21 @@ class _SearchScreenState extends State<SearchScreen>
                               '${donor['city']} · ${donor['distance_band']}',
                             ),
                             const SizedBox(height: 4),
-                            const Text(
-                              'Willing to donate',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: teal,
-                              ),
+                            const Row(
+                              children: [
+                                Icon(
+                                  Icons.volunteer_activism_outlined,
+                                  size: 14,
+                                  color: teal,
+                                ),
+                                SizedBox(width: 4),
+                                Flexible(
+                                  child: Text(
+                                    'Willing to donate',
+                                    style: TextStyle(fontSize: 12, color: teal),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -948,12 +1014,14 @@ class _SearchScreenState extends State<SearchScreen>
                           minimumSize: const Size(52, 52),
                         ),
                         icon: opening == donor['id'].toString()
-                            ? const SizedBox(
+                            ? SizedBox(
                                 width: 20,
                                 height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
+                                child: MediaQuery.disableAnimationsOf(context)
+                                    ? const Icon(Icons.hourglass_top, size: 20)
+                                    : const CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
                               )
                             : const Icon(Icons.chat_bubble_outline),
                       ),
@@ -1025,7 +1093,8 @@ class _SearchScreenState extends State<SearchScreen>
                 cameraInteractions++;
                 cameraMotion.stop();
               },
-              child: donorMap(),
+              // Overlay loading and sheet motion should not repaint map tiles.
+              child: RepaintBoundary(child: donorMap()),
             ),
           ),
           Positioned(
