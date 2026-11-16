@@ -17,6 +17,8 @@ await mkdir(backupDirectory, { recursive: true });
 const snapshots = new Map();
 const globalTables = ['accounts', 'donations', 'donation_confirmations', 'blocks', 'audit', 'media_cleanup', 'deletion_jobs', 'devices', 'active_matches'];
 const countryTables = ['profiles', 'conversations', 'messages', 'reports', 'report_attachments', 'calls', 'profile_photos', 'donation_requests', 'request_invitations', 'events', 'push_outbox'];
+// Stop legacy writers before running this importer: each file gets a consistent
+// SQLite backup, but separate database files do not share one snapshot boundary.
 for (const name of files) {
   const sourceDatabase = new DatabaseSync(join(source, name), { readOnly: true });
   try { await backup(sourceDatabase, join(backupDirectory, name)); } finally { sourceDatabase.close(); }
@@ -71,6 +73,8 @@ try {
       if (table === 'push_outbox' && !deviceIds.has(row.device_id)) { skippedOutbox++; continue; }
       await insert(schema, table, row);
     }
+    // Explicitly imported IDs do not advance PostgreSQL's identity sequence.
+    // Leave an empty inbox uncalled so its first newly created event still gets ID 1.
     await client.query(`SELECT setval(pg_get_serial_sequence($1,'id'),COALESCE((SELECT MAX(id) FROM ${schema}.events),1),EXISTS(SELECT 1 FROM ${schema}.events))`, [`${schema}.events`]);
   }
   await client.query('COMMIT');
