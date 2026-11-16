@@ -6,7 +6,10 @@ import 'api.dart';
 import 'ui.dart';
 import 'reports.dart';
 
-// Media teardown and invitation cancellation are independent: either may fail without skipping the other or trapping navigation.
+/// Settles media teardown and invitation cancellation before closing the call UI.
+///
+/// Both operations run even if one fails synchronously. Cleanup errors must not
+/// trap navigation; failed invitation cancellation is bounded by server expiry.
 Future<void> finishCallCleanup({
   required Future<void> Function() disconnect,
   required Future<void> Function() cancelInvitation,
@@ -24,6 +27,7 @@ Future<void> finishCallCleanup({
   }
 }
 
+/// Lists the member's server-authorized conversations using foreground polling.
 class ConversationsScreen extends StatefulWidget {
   final Api api;
   final Json me;
@@ -153,6 +157,7 @@ class _ConversationsScreenState extends State<ConversationsScreen>
   );
 }
 
+/// Keeps messages, voice-call invitations and safety actions within app identities.
 class ChatScreen extends StatefulWidget {
   final Api api;
   final Json me, conversation;
@@ -200,6 +205,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     super.dispose();
   }
 
+  // A single foreground request avoids overlapping polls; scroll only when the message count changes.
   Future<void> load() async {
     if (polling || !active) return;
     polling = true;
@@ -250,6 +256,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
+  // Creating an invitation does not join media; CallScreen waits for server-issued room credentials.
   Future<void> call() async {
     if (blocked) return;
     setState(() => calling = true);
@@ -469,6 +476,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   );
 }
 
+/// Owns one voice invitation and its LiveKit room until the route closes.
+///
+/// Accepted incoming calls may supply [credentials]; outgoing calls poll until
+/// the server authorizes joining the room. Neither path uses a phone number.
 class CallScreen extends StatefulWidget {
   final Api api;
   final String callId, peerName;
@@ -516,6 +527,7 @@ class _CallScreenState extends State<CallScreen> {
     }
   }
 
+  // Check route lifetime after each await so a late connection cannot reopen a cancelled microphone.
   Future<void> connect(Json credentials) async {
     if (connecting || connected || ended) return;
     connecting = true;
@@ -550,6 +562,7 @@ class _CallScreenState extends State<CallScreen> {
     }
   }
 
+  // Server state governs continued access, including expiry, decline and revocation while connected.
   Future<void> check() async {
     if (checking || ended) return;
     checking = true;
