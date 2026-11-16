@@ -1,0 +1,26 @@
+# Secrets and local data must never enter source control.
+.env
+.env.*
+!.env.example
+**/.venv/
+**/__pycache__/
+**/.pytest_cache/
+backend/data/
+*.log
+.ruflo/
+.swarm/
+.claude-flow/
+.claude/
+artifacts/
+*.p8
+# Signing identities and private keys stay on the developer machine or in a secret store.
+*.pem
+*.key
+*.p12
+*.pfx
+*.mobileprovision
+*.keystore
+*.jks
+**/google-services.json
+**/GoogleService-Info.plist
+node_modules/
