@@ -1,38 +1,56 @@
 # Architecture and decisions
 
-## Boundaries
+An initiative by Bindubashini Boys’ 2015 & Friends.
+
+## Service and database boundaries
 
 ```mermaid
 flowchart LR
-  M[Flutter Android / iOS] -->|Bearer token + country| A[FastAPI authorization boundary]
-  W[Separate admin console] -->|Bearer token + admin checks| A
+  M[Flutter Android / iOS] -->|Bearer token + country| A[Node.js / Fastify authorization boundary]
+  W[Administrator website] -->|Bearer token + administrator checks| A
   M --> S[Supabase social identity]
   A -->|Verify token| S
-  A --> G[(Global account and private history registry)]
-  A --> B[(Country BD database)]
-  A --> U[(Country AU database)]
-  A --> C[(Other enabled country databases)]
+  subgraph P[One PostgreSQL database with PostGIS]
+    G[(Registry schema)]
+    B[(country_bd schema)]
+    U[(country_au schema)]
+    C[(Other provisioned country schemas)]
+  end
+  A --> G
+  A --> B
+  A --> U
+  A --> C
   A -->|Short-lived room token| M
   M -->|Audio transport| L[LiveKit]
 ```
 
-The client never chooses its own role or determines enforcement. Server-side checks apply to each protected route, including admin, messages, calls, reports, export, and deletion. A country header scopes a request but is not proof of authority.
+The client never chooses its own role or enforcement status. Every protected route checks server-side identity, role and object membership. A country header scopes a request but grants no authority. Regular members use the mobile app; administrators have native and browser interfaces.
 
 ## Why this stack
 
-Flutter is already installed in the development environment and supports the connected Pixel plus a shared iOS codebase. Material controls provide accessibility and touch behavior without a custom component framework. FastAPI supplies typed boundary validation and an inspectable API. SQLite gives a runnable local system with separate database files without requiring a cloud account or database service. This is a single-service, single-host implementation; do not scale by adding independent replicas over local files.
+The backend uses JavaScript on Node.js 24 with Fastify. JSON Schema validation rejects unknown fields and invalid body types; security headers, explicit origins, bounded bodies and sanitized errors protect the HTTP boundary. `pg` provides parameterized queries and explicit database transactions without a second persistence abstraction. Sharp handles bounded image decoding and metadata stripping. Supabase supplies social identity, while LiveKit supplies audio transport; both require real deployment configuration.
 
-Supabase handles the provider OAuth exchange and identity lifecycle instead of implementing passwords or OAuth ourselves. The server validates access tokens with the configured identity service, restricts provider identities, and assigns admin access from server configuration. LiveKit handles audio transport instead of building a WebRTC relay. Both are integration dependencies requiring configuration and separate real-service verification.
+PostgreSQL supplies transactional constraints, concurrency control, roles and durable shared rate counters. PostGIS supplies a generated geography column and GiST index for radius searches in meters. Search still returns fixed coarse areas and distance bands rather than private points. No Redis, MongoDB, NestJS or Prisma service is required by this implementation.
 
-## Country storage and travel
+## Country schemas and travel
 
-Each enabled ISO country has a separate SQLite database containing local profiles, conversations, messages, reports, and calls. A shared registry coordinates identity, active country, voluntary availability, cooldown, deletion, and permanent bans. It also contains private owner donation history and completed-request confirmation receipts, so travel preserves these records. This health-related history makes the global data boundary broader than minimal enforcement metadata. Duplicating enforcement independently would allow travel to reset a cooldown or evade moderation.
+The user approved **one PostgreSQL database with isolated country schemas for the local implementation**. Country profiles, conversations, messages, reports/evidence, requests, photos and inbox/outbox rows are in schemas such as `country_bd` and `country_au`. The `registry` schema coordinates identity, active country, availability/cooldown, blocks, bans, deletion, shared match reservations and private donation history/confirmation receipts.
 
-Automatic foreground location uses an explicit initial consent explaining country updates during travel. Native reverse geocoding resolves country and area together; manual mode geocodes a selected area and checks its country. Only the active country exposes the donor for discovery; previous local profile discovery is removed atomically. Conversation history is not automatically copied between country databases. Travelers must understand that old conversations may be unavailable until returning to that region. Global safety state remains in force. See `LOCATION-AND-ACCESS.md` for failure and override behavior.
+The schemas provide logical country organization, not separate databases or geographic residency. The API role can access the schemas required for its authorized workflows; schema naming itself does not authorize a caller. SQL identifiers come only from a fixed ISO allowlist, and values are bound parameters. Production exposes explicitly enabled, provisioned countries. A local demo may provision the full ISO catalog without claiming any worldwide hosting.
 
-Separate files are logical separation, not physical data residency. A worldwide production rollout needs an approved country routing map, a regional host and backups for each deployed country, selected authentication/media regions, and an explicit policy for the shared registry. Never claim all countries are hosted locally because their filenames differ.
+Foreground automatic location uses explicit consent; manual selection remains authoritative until the member changes modes. A single transaction moves the current profile and photo, removes the old discovery profile, changes registry routing, and closes invalid matches/calls. Messages and reports stay in their original schema. Cooldowns, bans, preferences, donation history and reminders survive travel. Historical owner report/event routes can select their stored country without moving the account. See [location behavior](LOCATION-AND-ACCESS.md).
 
-## Availability invariant
+Independent country databases or geographic residency would require regional deployment, authenticated registry communication and recoverable cross-region operations. They cannot be substituted for schemas while claiming the same single-transaction guarantees. That production design remains separate work.
+
+## Transactions and concurrency
+
+Each domain transaction runs on one pooled connection at `SERIALIZABLE` isolation. Bounded retries handle PostgreSQL serialization/deadlock failures. Retried callbacks contain database work only; network push/media operations occur after persistent state is recorded. A source/destination profile move, global safety update or report resolution cannot partially commit.
+
+The database enforces one donation per request and one manual intent per confirming actor/key. A matched pair has unique participant reservations keyed by account ID, preventing simultaneous matches even when one account acts as donor in one request and seeker in another. Unique report-review events and outbox keys complement row locks and transaction isolation. Audit rows cannot be updated or deleted by the runtime role.
+
+The migration identity owns application schemas. The runtime identity has CRUD/sequence access but no schema creation or audit mutation privileges. Database/extension provisioning belongs to an administrator; migration credentials are not needed by the API process. Test reset is restricted to a separate database ending in `_test` and uses migration credentials. The interactive database is never a test fixture.
+
+## Availability and donation records
 
 ```text
 discoverable = complete profile
@@ -43,23 +61,20 @@ discoverable = complete profile
                AND no blocking relationship
 ```
 
-Three months means calendar months with month-end clamping, not 90 days. New donation logs validate the local calendar date using a bounded UTC offset and save a precise UTC deadline at the resulting local midnight. The recorded offset is fixed, not an IANA timezone/DST prediction. Legacy date-only records retain their UTC-midnight interpretation. The server derives current availability from time; no scheduled job is needed merely to return a consenting donor to discovery. Recording an older donation cannot shorten an existing pause. Local blood-service rules can require a longer delay or additional assessment. BMI is not an eligibility decision. For example, Australian Lifeblood describes a 12-week whole-blood interval; this application's requested three-calendar-month pause is its own conservative minimum, not a universal medical rule. [Lifeblood whole-blood guidance](https://www.lifeblood.com.au/donors/blood-plasma-platelets/learn/blood).
+Three months means calendar months with month-end clamping. New donation records validate the local date against a bounded UTC offset and save an absolute UTC deadline at the resulting local midnight. The recorded offset is fixed, not a prediction of future daylight-saving changes. New or backdated logs cannot shorten an existing pause. Availability is derived at read time; no scheduled task is needed to return an otherwise consenting donor. This application pause and informational BMI are not clinical eligibility decisions.
 
-## Actual donations and completion reminders
+Closing a request creates a shared confirmation reminder, not a donation. Either accepted participant can record the donor’s actual date and place. The first Yes updates the actual donor, history and receipt together. A seeker's response contains only their own profile. Each person's No dismisses only that person's reminder. Full history stays donor-only; matched request outcomes expose a limited receipt. See [donation behavior](DONATIONS.md).
 
-Closing coordination and recording an actual donation have separate meanings. Completion creates a global receipt carrying both matched identities and independent dismissal flags. Either participant can confirm, but every linked save targets the accepted donor. `BEGIN IMMEDIATE` and a unique request reference make simultaneous Yes submissions produce one history record and one donor cooldown update. The record retains the confirming actor and role. The response returns the caller's own profile, so a seeker never receives the donor's private measurements.
+## Communication, safety and deletion
 
-An actor/idempotency-key index protects manual retries. Reusing a committed key with changed details returns 409. Receipt recorded state, donation history and non-shortening donor cooldown commit together; a No updates only that participant's dismissed flag. Full history stays donor-only, with a limited matched-request outcome available to its pair. Confirmation checks refresh the caller profile so another device's confirmation updates the donor's displayed availability. The compact Home control and detailed Profile/settings card derive countdown from the same UTC deadline; no second availability state or scheduled expiry job is required. See [donation workflow](DONATIONS.md).
+Conversation reads require membership. New contact/messages/calls also check bans, country and blocks. Private photos require the owner or a currently accepted counterpart. Submitted reports and evidence remain accessible to their reporter and authorized moderators; accused administrators cannot review their own allegations. Review status, any global ban, immutable audit, reporter event and outbox entries commit together. Fixed public explanations never copy internal notes.
 
-## Privacy and abuse resistance
+Donation and report notifications use a durable inbox/outbox and eligibility checks at delivery. Push previews are generic. Delivery is at least once; clients deduplicate `(country,event_id)`. Messages and call invitations currently use foreground polling; production background chat/VoIP remains separate work. Media cleanup and deletion have durable retry queues, while the global tombstone immediately revokes deleted-account access.
 
-No phone-number field exists. Donor list responses are allowlisted summaries rather than serialized profile objects. Precise location is retained only to calculate distances. Rounded distance bands reduce disclosure, but do not make repeated location searches anonymous; operational anti-scraping controls and location-change limits remain important.
+The Node.js one-time importer reads legacy SQLite files without modifying them, creates backups, and imports into an empty PostgreSQL database transactionally. SQLite is not an application runtime database. Reusing a populated target is rejected rather than overwriting records. Raw database backups and personal device evidence remain outside Git.
 
-Conversation membership authorizes history and reporting; message/call writes additionally enforce active relationships. Both matched request participants can report, including after closure or a block. Report image attachments are validated, sanitized, bounded and stored in the report's regional database; authenticated no-store reporter/admin byte endpoints expose them without public URLs. Duplicate image retries are deduplicated by content digest. Report evidence is limited and reviewed by admins; messaging is not end-to-end encrypted in this build. Moderation requires a review note and records an audit entry. A confirmed money-request report bans the identity globally. There is no reliable claim that one human can never create another social account; that requires an additional identity-verification policy that would increase privacy cost.
+## Operational limits
 
-## Deliberate limits
+The local setup is a single PostgreSQL service with loopback-only published ports, not a highly available multi-region deployment. PostgreSQL-backed coordination supports shared state across API workers, but production capacity, backup restoration, failover, connection limits and worker behavior still require deployment testing. Exact location filtering can permit inference despite coarse display and rate limits.
 
-* SQLite and in-process controls target one local service process. Before multiple workers/hosts, move coordination, rate limits, and country storage to shared infrastructure with transaction guarantees.
-* Foreground polling provides message and call updates while the app is open. Donation request push uses a durable encrypted UnifiedPush/APNs outbox. Android background calling and iOS CallKit/VoIP push remain separate production work.
-* Discovery maps display coarse server-defined areas, never individual donor coordinates. Exact meeting destinations are shared separately after acceptance. No advertising SDK, contact upload, payment flow, automated clinical diagnosis, or blood compatibility recommendation is included.
-* Production metrics must omit tokens, message bodies, exact locations, and private measurements. Alerts should report operational outcomes, not personal records.
+TLS, encryption of storage/backups, secret management and administrator MFA are deployment responsibilities. Application fields are not individually encrypted, messages are not end-to-end encrypted, and account bans do not prove a unique human across different social identities. Operational logs must omit tokens, messages, exact coordinates, measurements and evidence. The project makes no claim of automatic clinical/regulatory compliance or completed Apple-device verification.

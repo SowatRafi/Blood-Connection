@@ -2,7 +2,9 @@
 
 ## Automated checks
 
-Run backend integration tests with the virtual environment, admin helper tests with Node, and Flutter analyze/tests as documented in each component. Tests must use temporary databases, never the interactive demo database. Critical checks cover:
+The current backend is JavaScript/Fastify with PostgreSQL/PostGIS. Start `docker compose -f infra/compose.local-database.yml up -d --wait`, install with `npm --prefix backend ci --ignore-scripts`, then run `npm --prefix backend test` on Node.js 24 LTS. Tests use a dedicated database whose name ends in `_test`; the reset helper refuses other database names. `./tools/check.ps1` runs the backend, admin and Flutter checks together. The legacy Python backend test file has been replaced by the JavaScript tests in `backend/test/`.
+
+Run backend integration tests against the dedicated PostgreSQL test database, admin helper tests with Node, and Flutter analyze/tests as documented in each component. Never run reset helpers against the interactive demo database. Critical checks cover:
 
 1. Unauthenticated requests, fake production tokens, non-admin access, and nonparticipant conversation access are rejected.
 2. Search rejects radius outside 1–39 km and invalid blood groups/coordinates; results exclude private fields and unavailable, cooling-down, blocked, banned, or cross-country donors.

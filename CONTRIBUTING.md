@@ -32,9 +32,11 @@ git diff --cached --no-ext-diff --unified=0 | gitleaks stdin --redact=100
 
 The baseline publication also used Gitleaks 8.30.1 against a copy of every candidate file. A clean scan is not a substitute for reviewing the content being published.
 
+Give every module and named function a concise purpose comment. Explain why privacy checks, transaction locks, constraints, retry rules and non-obvious calculations exist. Keep comments synchronized with behavior; avoid comments that merely repeat an obvious assignment. Use descriptive test names to document the behavior being protected.
+
 ## Validation
 
-After installing the documented dependencies, run `./tools/check.ps1` on Windows. It runs backend integration tests, admin tests, Flutter analysis and widget tests, stopping on failure. Other platforms can run the equivalent commands in the component READMEs. GitHub Actions repeats the checks on pushes and pull requests without production secrets or deployment permissions.
+After installing Node.js 24 LTS and the documented dependencies, run `./tools/check.ps1` on Windows. It starts the isolated local PostgreSQL container and runs JavaScript backend tests against the dedicated test database, admin tests, Flutter analysis and widget tests, stopping on failure. Other platforms can run the equivalent commands in the component READMEs. GitHub Actions repeats the checks on pushes and pull requests without production secrets or deployment permissions.
 
 Build Android when changes affect native configuration, dependencies or packaged assets. Record relevant device checks and limitations in `docs/DELIVERY.md`. iOS compilation and device checks require macOS/Xcode; local Android success does not establish Apple-platform support.
 
