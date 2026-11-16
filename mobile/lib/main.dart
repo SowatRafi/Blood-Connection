@@ -164,81 +164,87 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
     body: SafeArea(
-      child: PageBody(
-        children: [
-          const SizedBox(height: 32),
-          const Align(
-            alignment: Alignment.centerLeft,
-            child: BrandMark(size: 68),
-          ),
-          const SizedBox(height: 28),
-          Text(
-            kIsWeb
-                ? 'A safer community.\nIn your care.'
-                : 'A little of you.\nA lifeline for someone.',
-            style: Theme.of(context).textTheme.headlineLarge,
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            kIsWeb
-                ? 'Blood Connection administration. Member accounts use the Android or iOS app.'
-                : 'Find blood donors nearby. Connect privately. Be there when it matters.',
-            style: TextStyle(fontSize: 17, height: 1.6, color: muted),
-          ),
-          const SizedBox(height: 28),
-          const Notice(
-            'Your number stays yours. Messages and voice calls happen inside the app.',
-          ),
-          const SizedBox(height: 28),
-          Text(
-            kIsWeb ? 'Admin sign-in' : 'Welcome to Blood Connection',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-          const SizedBox(height: 16),
-          for (final provider in [
-            (OAuthProvider.google, 'Google'),
-            (OAuthProvider.apple, 'Apple'),
-            (OAuthProvider.facebook, 'Facebook'),
-          ]) ...[
-            OutlinedButton(
-              onPressed: busy ? null : () => signIn(provider.$1),
-              child: Text('Continue with ${provider.$2}'),
+      child: EntranceMotion(
+        child: PageBody(
+          children: [
+            const SizedBox(height: 32),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: BrandMark(size: 68),
             ),
-            const SizedBox(height: 12),
-          ],
-          if (error != null) ...[
-            Text(error!, style: const TextStyle(color: red)),
+            const SizedBox(height: 28),
+            Text(
+              kIsWeb
+                  ? 'A safer community.\nIn your care.'
+                  : 'A little of you.\nA lifeline for someone.',
+              style: Theme.of(context).textTheme.headlineLarge,
+            ),
             const SizedBox(height: 16),
-          ],
-          if (demoEnabled && !kIsWeb) ...[
-            FilledButton.icon(
-              onPressed: busy ? null : () => enter(true),
-              icon: const Icon(Icons.science_outlined),
-              label: const Text('Explore local demo'),
-            ),
-            const SizedBox(height: 8),
             const Text(
-              'Fictional people · local test data only',
-              textAlign: TextAlign.center,
+              kIsWeb
+                  ? 'Blood Connection administration. Member accounts use the Android or iOS app.'
+                  : 'Find blood donors nearby. Connect privately. Be there when it matters.',
+              style: TextStyle(fontSize: 17, height: 1.6, color: muted),
             ),
-            TextButton(
-              onPressed: busy ? null : () => enter(true, demoIdentity: 'donor'),
-              child: const Text('Try donor demo'),
+            const SizedBox(height: 28),
+            const Notice(
+              'Your number stays yours. Messages and voice calls happen inside the app.',
+            ),
+            const SizedBox(height: 28),
+            Text(
+              kIsWeb ? 'Admin sign-in' : 'Welcome to Blood Connection',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 16),
+            for (final provider in [
+              (OAuthProvider.google, 'Google'),
+              (OAuthProvider.apple, 'Apple'),
+              (OAuthProvider.facebook, 'Facebook'),
+            ]) ...[
+              OutlinedButton(
+                onPressed: busy ? null : () => signIn(provider.$1),
+                child: Text('Continue with ${provider.$2}'),
+              ),
+              const SizedBox(height: 12),
+            ],
+            if (error != null) ...[
+              Text(error!, style: const TextStyle(color: red)),
+              const SizedBox(height: 16),
+            ],
+            if (demoEnabled && !kIsWeb) ...[
+              FilledButton.icon(
+                onPressed: busy ? null : () => enter(true),
+                icon: const Icon(Icons.science_outlined),
+                label: const Text('Explore local demo'),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Fictional people · local test data only',
+                textAlign: TextAlign.center,
+              ),
+              TextButton(
+                onPressed: busy
+                    ? null
+                    : () => enter(true, demoIdentity: 'donor'),
+                child: const Text('Try donor demo'),
+              ),
+            ],
+            if (demoEnabled)
+              TextButton.icon(
+                onPressed: busy
+                    ? null
+                    : () => enter(true, demoIdentity: 'admin'),
+                icon: const Icon(Icons.admin_panel_settings_outlined),
+                label: const Text('Open admin demo'),
+              ),
+            const SizedBox(height: 32),
+            const Text(
+              attribution,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, height: 1.7, color: muted),
             ),
           ],
-          if (demoEnabled)
-            TextButton.icon(
-              onPressed: busy ? null : () => enter(true, demoIdentity: 'admin'),
-              icon: const Icon(Icons.admin_panel_settings_outlined),
-              label: const Text('Open admin demo'),
-            ),
-          const SizedBox(height: 32),
-          const Text(
-            attribution,
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12, height: 1.7, color: muted),
-          ),
-        ],
+        ),
       ),
     ),
   );
@@ -755,11 +761,19 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             ),
           };
     const destinations = [
-      (Icons.home_outlined, 'Home'),
-      (Icons.search, 'Find donors'),
-      (Icons.volunteer_activism_outlined, 'Requests'),
-      (Icons.chat_bubble_outline, 'Messages'),
-      (Icons.person_outline, 'Profile'),
+      (Icons.home_outlined, Icons.home_rounded, 'Home'),
+      (Icons.explore_outlined, Icons.explore_rounded, 'Find donors'),
+      (
+        Icons.volunteer_activism_outlined,
+        Icons.volunteer_activism_rounded,
+        'Requests',
+      ),
+      (
+        Icons.chat_bubble_outline_rounded,
+        Icons.chat_bubble_rounded,
+        'Messages',
+      ),
+      (Icons.person_outline_rounded, Icons.person_rounded, 'Profile'),
     ];
     return appRoot(
       Scaffold(
@@ -814,7 +828,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                           .map(
                             (d) => NavigationRailDestination(
                               icon: Icon(d.$1),
-                              label: Text(d.$2),
+                              selectedIcon: Icon(d.$2),
+                              label: Text(d.$3),
                             ),
                           )
                           .toList(),
@@ -828,12 +843,16 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         bottomNavigationBar: wide
             ? null
             : NavigationBar(
+                animationDuration: motionDuration(context, motionState),
                 selectedIndex: tab,
                 onDestinationSelected: (value) => setState(() => tab = value),
                 destinations: destinations
                     .map(
-                      (d) =>
-                          NavigationDestination(icon: Icon(d.$1), label: d.$2),
+                      (d) => NavigationDestination(
+                        icon: Icon(d.$1),
+                        selectedIcon: Icon(d.$2),
+                        label: d.$3,
+                      ),
                     )
                     .toList(),
               ),
@@ -865,100 +884,136 @@ class HomeScreen extends StatelessWidget {
   });
   @override
   Widget build(BuildContext context) {
-    return PageBody(
-      children: [
-        if (locationWarning != null) ...[
-          Notice(
-            locationWarning!,
-            icon: Icons.location_off_outlined,
-            color: const Color(0xFFFBE9EC),
-          ),
-          TextButton(
-            onPressed: onLocation,
-            child: const Text('Review my location'),
-          ),
-          const SizedBox(height: 16),
-        ],
-        Row(
-          children: [
-            const Icon(Icons.location_on_outlined, size: 17, color: muted),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                '${me['city'] ?? 'Set your location'} · ${me['country'] ?? ''}',
-              ),
+    return EntranceMotion(
+      child: PageBody(
+        children: [
+          if (locationWarning != null) ...[
+            Notice(
+              locationWarning!,
+              icon: Icons.location_off_outlined,
+              color: const Color(0xFFFBE9EC),
             ),
+            TextButton(
+              onPressed: onLocation,
+              child: const Text('Review my location'),
+            ),
+            const SizedBox(height: 16),
           ],
-        ),
-        const SizedBox(height: 20),
-        Text(
-          'Hello, ${me['display_name']?.toString().split(' ').first ?? 'friend'}.',
-          style: Theme.of(context).textTheme.headlineMedium,
-        ),
-        const SizedBox(height: 6),
-        const Text('Someone nearby may need your kindness.'),
-        const SizedBox(height: 24),
-        DonationStatusCard(
-          me: me,
-          compact: true,
-          onAvailability: onAvailability,
-          onRecord: onRecordDonation ?? onProfile,
-          onHistory: onDonationHistory ?? onProfile,
-        ),
-        const SizedBox(height: 20),
-        Panel(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+          Row(
             children: [
-              const Align(
-                alignment: Alignment.centerLeft,
-                child: Icon(
-                  Icons.favorite_border_rounded,
-                  size: 32,
-                  color: red,
+              const Icon(Icons.location_on_outlined, size: 17, color: muted),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  '${me['city'] ?? 'Set your location'} · ${me['country'] ?? ''}',
                 ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                'The right connection.\nWhen it matters.',
-                style: Theme.of(context).textTheme.headlineMedium,
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Find willing donors within 39 km.\nA small distance. A meaningful difference.',
-              ),
-              const SizedBox(height: 24),
-              FilledButton.icon(
-                onPressed: onSearch,
-                icon: const Icon(Icons.search),
-                label: const Text('Find a blood donor'),
               ),
             ],
           ),
-        ),
-        const SizedBox(height: 20),
-        const Notice(
-          'Always free. Always private. Never pay for blood. Report requests for money directly from a conversation.',
-        ),
-        const SizedBox(height: 24),
-        const Text(
-          'For urgent medical care, contact your local emergency service or hospital. Matching here does not replace blood-bank screening.',
-          style: TextStyle(fontSize: 12, color: muted, height: 1.6),
-        ),
-        if (demo) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: 20),
+          Text(
+            'Hello, ${me['display_name']?.toString().split(' ').first ?? 'friend'}.',
+            style: Theme.of(context).textTheme.headlineMedium,
+          ),
+          const SizedBox(height: 6),
+          const Text('Someone nearby may need your kindness.'),
+          const SizedBox(height: 24),
+          DonationStatusCard(
+            me: me,
+            compact: true,
+            onAvailability: onAvailability,
+            onRecord: onRecordDonation ?? onProfile,
+            onHistory: onDonationHistory ?? onProfile,
+          ),
+          const SizedBox(height: 20),
+          Panel(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const _ConnectionIllustration(),
+                const SizedBox(height: 20),
+                Text(
+                  'The right connection.\nWhen it matters.',
+                  style: Theme.of(context).textTheme.headlineMedium,
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Find willing donors within 39 km.\nA small distance. A meaningful difference.',
+                ),
+                const SizedBox(height: 24),
+                FilledButton.icon(
+                  onPressed: onSearch,
+                  icon: const Icon(Icons.search_rounded),
+                  label: const Text('Find a blood donor'),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          const Notice(
+            'Always free. Always private. Never pay for blood. Report requests for money directly from a conversation.',
+          ),
+          const SizedBox(height: 24),
           const Text(
-            'Local demo · all people and conversations are fictional.',
-            style: TextStyle(fontSize: 12, color: red),
+            'For urgent medical care, contact your local emergency service or hospital. Matching here does not replace blood-bank screening.',
+            style: TextStyle(fontSize: 12, color: muted, height: 1.6),
+          ),
+          if (demo) ...[
+            const SizedBox(height: 12),
+            const Text(
+              'Local demo · all people and conversations are fictional.',
+              style: TextStyle(fontSize: 12, color: red),
+            ),
+          ],
+          const SizedBox(height: 28),
+          const Text(
+            attribution,
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 12, color: muted, height: 1.7),
           ),
         ],
-        const SizedBox(height: 28),
-        const Text(
-          attribution,
-          textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 12, color: muted, height: 1.7),
-        ),
-      ],
+      ),
     );
   }
+}
+
+/// A static, decorative connection motif; it never implies live donor activity.
+class _ConnectionIllustration extends StatelessWidget {
+  const _ConnectionIllustration();
+
+  @override
+  Widget build(BuildContext context) => ExcludeSemantics(
+    child: Align(
+      alignment: Alignment.centerLeft,
+      child: SizedBox(
+        width: 176,
+        height: 56,
+        child: Row(
+          children: [
+            _person(),
+            Expanded(child: Container(height: 2, color: mint)),
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: rose,
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: const Icon(Icons.bloodtype_outlined, color: red, size: 30),
+            ),
+            Expanded(child: Container(height: 2, color: mint)),
+            _person(),
+          ],
+        ),
+      ),
+    ),
+  );
+
+  // Matching silhouettes communicate equal participation, not identified people.
+  Widget _person() => Container(
+    width: 40,
+    height: 40,
+    decoration: const BoxDecoration(color: mint, shape: BoxShape.circle),
+    child: const Icon(Icons.person_outline_rounded, color: teal, size: 23),
+  );
 }
