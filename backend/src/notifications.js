@@ -28,7 +28,9 @@ export async function eventAllowed(db, event, country, ctx) {
   return ['cancelled', 'completed', 'expired'].includes(request.status);
 }
 
-// The lease is committed before network I/O; a retrying transaction must never send a second notification.
+// Commit the lease before network I/O so a database retry cannot repeat a send.
+// A crash after delivery but before recording success can still cause redelivery;
+// this durable outbox is retryable delivery, not an exactly-once provider guarantee.
 export async function processPush(store, settings, ctx) {
   for (const country of await store.countries()) {
     const jobs = await store.transaction(country, async db => {

@@ -1,6 +1,7 @@
 import Flutter
 import UIKit
 
+/// Captures cold-start notification taps before Flutter builds its first route.
 class SceneDelegate: FlutterSceneDelegate {
   // UIScene owns cold-start notification taps on current iOS releases.
   override func scene(_ scene: UIScene, willConnectTo session: UISceneSession,

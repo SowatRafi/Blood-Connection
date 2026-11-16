@@ -2,10 +2,12 @@ import Flutter
 import UIKit
 import UserNotifications
 
+/// Bridges APNs enrollment and opaque notification targets into the shared Flutter session.
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   private var pushChannel: FlutterMethodChannel?
   private var registrationResult: FlutterResult?
+  // A cold-start tap can arrive before the Flutter channel exists; retain only its navigation target.
   private var openedNotification: [String: String]?
 
   override func application(
@@ -17,6 +19,7 @@ import UserNotifications
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
+  // Register after the implicit engine is ready, when its messenger and plugin registry are available.
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
     let channel = FlutterMethodChannel(name: "bloodconnection/apns",
@@ -26,6 +29,7 @@ import UserNotifications
       guard let self = self else { return }
       switch call.method {
       case "register":
+        // Complete an older pending callback before replacement so its Dart Future is not stranded.
         self.registrationResult?(FlutterError(code: "superseded", message: "Registration restarted", details: nil))
         self.registrationResult = result
         UIApplication.shared.registerForRemoteNotifications()
@@ -57,7 +61,10 @@ import UserNotifications
     super.application(application, didFailToRegisterForRemoteNotificationsWithError: error)
   }
 
-  // A watch action opens the phone for review; it cannot accept a donation on a locked screen.
+  /// Forwards a private notification tap for authenticated review on the phone.
+  ///
+  /// Dart validates bounded IDs before navigation; the API still authorizes the
+  /// referenced record. A watch action cannot accept a donation on the lock screen.
   func openPrivateNotification(_ response: UNNotificationResponse) -> Bool {
     let info = response.notification.request.content.userInfo
     var payload: [String: String]
