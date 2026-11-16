@@ -1,8 +1,11 @@
 import { randomUUID } from 'node:crypto';
 export { COUNTRIES } from './countries.js';
 
+// An explicit ABO/Rh list prevents clients from treating unsupported labels as compatibility advice.
 export const GROUPS = new Set(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']);
+// UTC timestamps keep expiry decisions independent of the developer/server machine's timezone.
 export const stamp = () => new Date().toISOString();
+// Opaque random IDs avoid exposing sequence positions for private resources.
 export const newId = () => randomUUID();
 
 /** Clamp the day at month-end: the requested pause is three calendar months, not 90 days. */

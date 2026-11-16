@@ -24,6 +24,15 @@ for (const name of files) {
   try {
     const tables = name === 'registry.sqlite3' ? globalTables : countryTables;
     const exists = new Set(snapshot.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(row => row.name));
+    // This importer targets the committed baseline, not unknown historic layouts requiring clinical-data backfills.
+    const required = name === 'registry.sqlite3' ? {
+      donations: ['facility_name', 'location_name', 'country', 'request_id', 'confirmed_by', 'confirmed_by_role', 'idempotency_key'],
+      donation_confirmations: ['requester_id', 'donor_name', 'donor_dismissed', 'seeker_dismissed'],
+    } : { reports: ['request_id', 'idempotency_key', 'reviewed_at'], events: ['report_id', 'report_country'] };
+    for (const [table, columns] of Object.entries(required)) {
+      const found = new Set(snapshot.prepare(`PRAGMA table_info("${table}")`).all().map(row => row.name));
+      if (!columns.every(column => found.has(column))) throw new Error('Import requires the SQLite schema from baseline 4e90456; upgrade an older installation first');
+    }
     snapshots.set(name, Object.fromEntries(tables.map(table => [table, exists.has(table) ? snapshot.prepare(`SELECT * FROM "${table}"`).all() : []])));
   } finally { snapshot.close(); }
 }
@@ -40,6 +49,7 @@ try {
   const registry = snapshots.get('registry.sqlite3');
   const deviceIds = new Set(registry.devices.map(row => row.id));
   const timestamps = new Set(['created_at', 'updated_at', 'expires_at', 'reviewed_at', 'eligible_after_utc', 'next_attempt']);
+  // Fixed table lists and validated column names prevent SQL injection; timestamps retain their original instants.
   const insert = async (schema, table, row) => {
     const fields = Object.keys(row);
     if (fields.some(field => !/^[a-z_]+$/.test(field))) throw new Error('Unexpected legacy column');
