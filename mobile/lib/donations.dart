@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import 'api.dart';
 import 'ui.dart';
 
-// One recorder serves manual history and completed-request prompts without duplicating save rules.
+/// Opens the shared recorder and returns the server-updated caller profile on save.
+///
+/// [confirmation] associates the record with a completed match; without it, the
+/// member records their own donation. Cancellation returns null.
 Future<Json?> showDonationRecorder(
   BuildContext context,
   Api api,
@@ -28,7 +31,10 @@ Future<Json?> showDonationRecorder(
   return saved;
 }
 
-// Later never mutates the server; only an explicit No dismisses a persisted confirmation.
+/// Asks either matched participant whether a donation occurred before recording it.
+///
+/// Later leaves the reminder pending; No dismisses only this caller's reminder.
+/// A Yes still requires checking the date and place in the recorder.
 Future<Json?> showDonationConfirmation(
   BuildContext context,
   Api api,
@@ -143,6 +149,10 @@ class _DonationConfirmationDialogState
   );
 }
 
+/// Collects the date and facility for a personal or matched donation record.
+///
+/// The server resolves the donor from [confirmation], so a seeker can confirm
+/// without accidentally pausing their own account.
 class DonationRecorderScreen extends StatefulWidget {
   final Api api;
   final Json me;
@@ -159,6 +169,7 @@ class DonationRecorderScreen extends StatefulWidget {
 
 class _DonationRecorderScreenState extends State<DonationRecorderScreen> {
   final form = GlobalKey<FormState>();
+  // Keep the key for this draft: a lost acknowledgement must not create another donation on retry.
   final idempotencyKey = newSubmissionKey();
   late final TextEditingController facility, area;
   DateTime date = DateUtils.dateOnly(DateTime.now());
@@ -398,6 +409,9 @@ class _DonationRecorderScreenState extends State<DonationRecorderScreen> {
   }
 }
 
+/// Shows the signed-in member's private donation history and unresolved reminders.
+///
+/// [onSaved] lets the parent refresh availability from the acknowledged profile.
 class DonationHistoryScreen extends StatefulWidget {
   final Api api;
   final Json me;
