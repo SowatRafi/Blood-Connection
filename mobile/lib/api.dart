@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+/// A decoded API object; endpoint-specific fields are interpreted by the caller.
 typedef Json = Map<String, dynamic>;
 const demoEnabled = bool.fromEnvironment('DEMO_MODE');
 const apiUrl = String.fromEnvironment(
@@ -18,7 +19,9 @@ const bloodGroups = ['A+', 'A−', 'B+', 'B−', 'AB+', 'AB−', 'O+', 'O−'];
 // One shared signature keeps the community identity consistent across every screen.
 const attribution = 'An initiative by Bindubashini Boys’ 2015 & Friends';
 
-// Retain one key per form so retrying a lost acknowledgement cannot duplicate a submitted record.
+/// Creates a submission key to retain across retries of the same form.
+///
+/// Generate a new key for a new submission, not for a lost acknowledgement.
 String newSubmissionKey() {
   final random = Random.secure();
   return List.generate(
@@ -27,7 +30,9 @@ String newSubmissionKey() {
   ).join();
 }
 
-// Shared local checks reject unsuitable images before upload; the server verifies and sanitizes pixels.
+/// Checks upload size and a JPEG/PNG signature before sending private images.
+///
+/// This is client preflight only; the server must verify and sanitize the pixels.
 String privateImageType(Uint8List bytes) {
   if (bytes.length > 5 * 1024 * 1024) {
     throw const ApiException('Choose an image no larger than 5 MB.');
@@ -45,7 +50,7 @@ String privateImageType(Uint8List bytes) {
   throw const ApiException('Choose a JPEG or PNG image.');
 }
 
-// One readable failure type keeps server validation visible without leaking HTTP internals.
+/// A displayable failure with an optional HTTP status for onboarding decisions.
 class ApiException implements Exception {
   final String message;
   final int? statusCode;
@@ -54,6 +59,10 @@ class ApiException implements Exception {
   String toString() => message;
 }
 
+/// Session-scoped transport for JSON and private images in the active country.
+///
+/// Location changes update [country] after the server returns the routed profile.
+/// The backend remains responsible for identity, role and country authorization.
 class Api {
   final http.Client client;
   String country = demoEnabled ? 'BD' : '';
@@ -122,6 +131,10 @@ class Api {
     }
   }
 
+  /// Sends a JSON object and normalizes empty responses to an empty object.
+  ///
+  /// Unexpected response shapes become the same displayable error as other
+  /// transport failures, so screens do not expose decoding internals.
   Future<Json> request(
     String path, {
     String method = 'GET',
@@ -145,9 +158,10 @@ class Api {
     }
   }
 
-  // Private photos are authenticated bytes, never reusable public URLs or files on shared storage.
+  /// Fetches private photo bytes through the server's access check on each call.
   Future<Uint8List> photo(String userId) async =>
       (await _send('/profiles/${Uri.encodeComponent(userId)}/photo')).bodyBytes;
+  /// Replaces the signed-in member's photo after local file preflight.
   Future<Json> uploadPhoto(Uint8List bytes) async {
     final response = await _send(
       '/me/photo',
@@ -158,7 +172,7 @@ class Api {
     return Json.from(jsonDecode(response.body) as Map);
   }
 
-  // Report evidence uses the same identity/country boundary and never exposes reusable public URLs.
+  /// Uploads evidence within the report access boundary without a public URL.
   Future<Json> uploadReportEvidence(String reportId, Uint8List bytes) async {
     final response = await _send(
       '/reports/${Uri.encodeComponent(reportId)}/evidence',
@@ -169,11 +183,13 @@ class Api {
     return Json.from(jsonDecode(response.body) as Map);
   }
 
+  /// Reads a report's original country without changing the active location.
   Future<Uint8List> reportEvidence(
     String reportId,
     String evidenceId, {
     String? country,
   }) => _evidence('/reports', reportId, evidenceId, country: country);
+  /// Uses the moderator endpoint, whose role check is enforced by the server.
   Future<Uint8List> adminReportEvidence(String reportId, String evidenceId) =>
       _evidence('/admin/reports', reportId, evidenceId);
 
@@ -194,22 +210,25 @@ class Api {
     return response.bodyBytes;
   }
 
-  // Typed list conversion avoids spreading unchecked JSON casts across screens.
+  /// Unwraps the API's list envelope into object maps for consuming screens.
   Future<List<Json>> list(String path, {Map<String, String>? query}) async =>
       ((await request(path, query: query))['items'] as List)
           .map((e) => Json.from(e as Map))
           .toList();
+  /// Releases transport resources when this signed-in route ends.
   void close() => client.close();
 }
 
-// The API uses ASCII minus while typography uses a true minus for clearer blood groups.
+/// Converts the display minus to the API's ASCII blood-group notation.
 String wireBlood(String value) => value.replaceAll('−', '-');
+/// Uses a typographic minus for the same blood-group value in the interface.
 String displayBlood(Object? value) =>
     (value?.toString() ?? '').replaceAll('-', '−');
+/// Extracts the supplied calendar date without converting it between time zones.
 String shortDate(Object? value) =>
     value == null ? '' : value.toString().split('T').first;
 
-// Use the server's absolute pause boundary; older date-only records were defined at UTC midnight.
+/// Reads the server's pause deadline, including legacy dates at UTC midnight.
 DateTime? donationPauseEnd(Json profile) {
   final precise = profile['eligible_after_utc'];
   if (precise != null) return DateTime.tryParse(precise.toString());

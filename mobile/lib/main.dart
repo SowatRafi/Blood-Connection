@@ -1,4 +1,6 @@
 // An initiative by Bindubashini Boys’ 2015 & Friends.
+// Startup, signed-in routing and foreground coordination share one current
+// profile so travel, donation pauses and account changes reach each screen.
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -19,7 +21,9 @@ import 'donations.dart';
 import 'reports.dart';
 export 'search.dart' show SearchScreen;
 
-// Platform-backed encrypted storage keeps refresh tokens out of ordinary preferences on phones.
+/// Stores mobile auth sessions in platform-backed secure storage.
+///
+/// The web initialization uses empty storage instead of persisting this session.
 class SecureSessionStorage extends LocalStorage {
   const SecureSessionStorage();
   static const storage = FlutterSecureStorage();
@@ -37,7 +41,9 @@ class SecureSessionStorage extends LocalStorage {
       storage.write(key: key, value: persistSessionString);
 }
 
-// Missing cloud credentials must leave a usable welcome screen rather than crash startup.
+/// Initializes optional services, then starts the app unless this is a push task.
+///
+/// Missing auth configuration leaves the welcome screen available for local work.
 Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
   registerBrandLicenses();
@@ -57,6 +63,7 @@ Future<void> main(List<String> args) async {
   runApp(const BloodConnectionApp());
 }
 
+/// Applies the shared brand theme before authentication and role-based routing.
 class BloodConnectionApp extends StatelessWidget {
   const BloodConnectionApp({super.key});
   @override
@@ -68,6 +75,7 @@ class BloodConnectionApp extends StatelessWidget {
   );
 }
 
+/// Starts social authentication and explicitly enabled local demo sessions.
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
   @override
@@ -123,6 +131,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     if (mounted) setState(() => busy = false);
   }
 
+  // Provider completion returns through the auth subscription; starting OAuth
+  // does not itself authorize navigation into the signed-in app.
   Future<void> signIn(OAuthProvider provider) async {
     if (!hasAuth) {
       setState(
@@ -234,6 +244,10 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   );
 }
 
+/// Owns the active profile, member navigation and the separate admin surface.
+///
+/// Screens receive this profile after server updates rather than maintaining
+/// independent copies of location, availability and donation pause state.
 class MainScreen extends StatefulWidget {
   final Api api;
   const MainScreen({super.key, required this.api});
@@ -358,6 +372,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.scheduleFrame();
   }
 
+  // Update routing from the server profile. Notification attachment is best
+  // effort and must not prevent the profile from becoming usable.
   void acceptProfile(Json profile) {
     unawaited(
       NotificationService.attach(
@@ -376,6 +392,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     }
   }
 
+  // Resolve the account before asking for local location consent. A 409 with no
+  // profile represents location onboarding, not a generic signed-in failure.
   Future<void> load() async {
     if (loading) return;
     loading = true;
@@ -461,12 +479,15 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     }
   }
 
+  // Feed the returned server profile back into all tabs immediately so a newly
+  // recorded donation updates availability without waiting for another poll.
   Future<void> recordDonation() async {
     if (me == null) return;
     final updated = await showDonationRecorder(context, widget.api, me!);
     if (updated != null && mounted) acceptProfile(updated);
   }
 
+  // History may resolve pending confirmations, so it shares the profile callback.
   Future<void> showDonationHistory() async {
     if (me == null) return;
     await Navigator.push<void>(
@@ -481,6 +502,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     );
   }
 
+  // Keep manual selection out of an active automatic update; its saved result
+  // also primes the refresh cache to avoid an immediate redundant GPS lookup.
   Future<void> chooseLocation() async {
     if (!mounted || kIsWeb) return;
     if (updatingLocation) {
@@ -615,6 +638,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     }
   }
 
+  // Publish only the acknowledged profile. The switch does not locally override
+  // server-enforced donation pauses or safety restrictions.
   Future<void> saveAvailability(bool value) async {
     if (me == null || savingAvailability) return;
     setState(() => savingAvailability = true);
@@ -632,6 +657,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     }
   }
 
+  // Detach this device's notification binding while credentials still exist,
+  // then dispose the signed-in route and its shared HTTP client.
   Future<void> signOut() async {
     await NotificationService.detach();
     if (!widget.api.demo && hasAuth) {
@@ -815,7 +842,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 }
 
-// The home screen centers two real actions, avoiding invented statistics or medical promises.
+/// Shows donation status and entry points using the current server profile.
 class HomeScreen extends StatelessWidget {
   final Json me;
   final bool demo;
