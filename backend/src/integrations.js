@@ -184,6 +184,8 @@ export async function sendPush(device, event, settings) {
 }
 
 // Authorization occurs in the call route; credentials reveal no names and permit only this audio room.
+// The five-minute JWT bounds admission, not an already-connected media session;
+// ending access also requires the durable participant/room cleanup path below.
 export async function livekitCredentials(call, user, settings) {
   if (!settings.livekitUrl || !settings.livekitKey || !settings.livekitSecret) {
     throw new HttpError(503, 'Calling has not been configured');
