@@ -1,0 +1,25 @@
+# These credentials are public local fixtures. The database is reachable only through host loopback.
+name: bloodconnection-database
+services:
+  postgres:
+    image: postgis/postgis:18-3.7@sha256:e55337da273845fb2ad38f6151953f70fd93ac8ac2a3d2edbc4056c858783a5f
+    ports:
+      - "127.0.0.1:5436:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: postgres
+      POSTGRES_PASSWORD: ${BC_POSTGRES_PASSWORD:-local-development-admin-only}
+      BC_MIGRATION_PASSWORD: ${BC_MIGRATION_PASSWORD:-local-development-migration-only}
+      BC_RUNTIME_PASSWORD: ${BC_RUNTIME_PASSWORD:-local-development-runtime-only}
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    volumes:
+      - postgres-data:/var/lib/postgresql
+      - ./postgres-init.sh:/docker-entrypoint-initdb.d/10-bloodconnection.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d blood_connection"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+volumes:
+  postgres-data:
