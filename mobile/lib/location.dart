@@ -6,9 +6,13 @@ import 'package:geolocator/geolocator.dart';
 import 'api.dart';
 import 'ui.dart';
 
+/// Native latitude/longitude used for private routing and nearby searches.
 typedef Coordinates = ({double latitude, double longitude});
 
-// Routing payloads contain only an area label and country; detailed addresses are opt-in meeting-place previews.
+/// A resolved country, area and coordinates, with an optional address preview.
+///
+/// Detailed addresses are requested only for meeting-place previews and are
+/// excluded from routing payloads; coordinates still accompany the private API.
 class ResolvedPlace {
   final String country, city;
   final String? address;
@@ -20,6 +24,7 @@ class ResolvedPlace {
     required this.longitude,
     this.address,
   });
+  /// Builds the location update without including the optional address preview.
   Json payload(String mode) => {
     'country': country,
     'city': city,
@@ -29,7 +34,9 @@ class ResolvedPlace {
   };
 }
 
-// Injectable native operations let routing and travel be tested without mocking a real person's GPS.
+/// Resolves locations through injectable native GPS and geocoding operations.
+///
+/// Injection allows travel and lookup failures to be tested without live GPS.
 class LocationService {
   final Future<Coordinates> Function() coordinates;
   final Future<List<geo.Placemark>> Function(double, double) reverse;
@@ -46,6 +53,8 @@ class LocationService {
            geocode ??
            ((address) => geo.Geocoding().locationFromAddress(address));
 
+  // Ask only when permission is undecided/denied, and leave a manual route for
+  // disabled services or permanent denial instead of starting background tracking.
   static Future<Coordinates> _deviceCoordinates() async {
     if (!await Geolocator.isLocationServiceEnabled()) {
       throw const ApiException(
@@ -71,6 +80,8 @@ class LocationService {
     return (latitude: result.latitude, longitude: result.longitude);
   }
 
+  // A point is usable for country routing only when both an ISO code and area
+  // label resolve; a coordinate alone must not silently choose a country.
   Future<ResolvedPlace> _resolve(
     Coordinates point, {
     bool includeAddress = false,
@@ -121,7 +132,7 @@ class LocationService {
     );
   }
 
-  // GPS and country resolution must both succeed before any discovery location changes.
+  /// Resolves a one-time device position before discovery location can change.
   Future<ResolvedPlace> automatic() async {
     try {
       return await _resolve(await coordinates());
@@ -134,7 +145,7 @@ class LocationService {
     }
   }
 
-  // Manual input is geocoded afresh and its reverse-resolved country must match the selection.
+  /// Accepts a geocoded area only when its resolved country matches the selection.
   Future<ResolvedPlace> manual({
     required String country,
     required String countryName,
@@ -165,7 +176,9 @@ class LocationService {
   }
 }
 
-// A five-minute foreground cache reduces platform geocoder load, but failed refreshes never authorize stale searches.
+/// Coalesces foreground location refreshes and briefly caches successful updates.
+///
+/// Failures clear the five-minute cache so a retry cannot accept an older success.
 class LocationCoordinator {
   final Api api;
   final LocationService service;
@@ -178,6 +191,9 @@ class LocationCoordinator {
     DateTime Function()? now,
   }) : service = service ?? LocationService(),
        now = now ?? DateTime.now;
+  /// Preserves manual locations and shares an in-flight automatic refresh.
+  ///
+  /// [force] bypasses the success cache, but still joins an existing request.
   Future<Json> refresh(Json profile, {bool force = false}) {
     if (profile['location_mode'] != 'automatic') return Future.value(profile);
     if (!force &&
@@ -188,6 +204,8 @@ class LocationCoordinator {
     return _pending ??= _update().whenComplete(() => _pending = null);
   }
 
+  // The old country header routes the move; only the acknowledged destination
+  // becomes the shared API country used by subsequent requests.
   Future<Json> _update() async {
     try {
       final place = await service.automatic();
@@ -206,15 +224,18 @@ class LocationCoordinator {
   }
 }
 
-// Consent is device-local and account-specific; a different person's login cannot inherit it.
+/// Remembers app-level consent per account on this device, separate from OS GPS permission.
 class LocationConsent {
   static const _storage = FlutterSecureStorage();
+  /// Checks whether this account agreed to automatic foreground updates here.
   static Future<bool> allowed(String id) async =>
       await _storage.read(key: 'automatic_location_$id') == 'yes';
+  /// Records consent only after an automatic location has been saved.
   static Future<void> remember(String id) =>
       _storage.write(key: 'automatic_location_$id', value: 'yes');
 }
 
+/// Collects automatic-location consent or a verified manual area before saving.
 class LocationScreen extends StatefulWidget {
   final Api api;
   final Json? current;
@@ -242,6 +263,7 @@ class _LocationScreenState extends State<LocationScreen> {
     super.dispose();
   }
 
+  // Use backend-supported country codes rather than maintaining a second list.
   Future<void> loadCountries() async {
     try {
       final result = await widget.api.list('/countries');
@@ -251,7 +273,8 @@ class _LocationScreenState extends State<LocationScreen> {
     }
   }
 
-  // One clear choice authorizes automatic foreground travel updates, including country-database changes.
+  // Save routing first, then remember consent. Existing accounts retain their
+  // original country header until the server acknowledges the regional move.
   Future<void> save(bool automatic) async {
     if (!automatic && (country == null || area.text.trim().isEmpty)) {
       setState(() => error = 'Choose a country and enter a city or suburb.');
@@ -298,6 +321,8 @@ class _LocationScreenState extends State<LocationScreen> {
       }
       // New users have no regional profile; the resolved destination safely bootstraps their first one.
       if (widget.current == null) widget.api.country = place.country;
+      // PopScope blocks leaving during the mutation so its result can update the
+      // parent's profile and the shared API country together.
       setState(() => committing = true);
       final result = await widget.api.request(
         '/location',
