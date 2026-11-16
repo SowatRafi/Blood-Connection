@@ -4,6 +4,10 @@ import 'package:flutter/material.dart';
 import 'api.dart';
 import 'ui.dart';
 
+/// Displays a photo only after the authenticated endpoint allows the read.
+///
+/// Backgrounding clears the displayed bytes; resuming fetches through the
+/// server again so a previously accepted relationship is not assumed to persist.
 class PrivatePhoto extends StatefulWidget {
   final Api api;
   final String userId;
@@ -50,6 +54,8 @@ class _PrivatePhotoState extends State<PrivatePhoto>
     }
   }
 
+  // Invalidating the generation also prevents an in-flight fetch from restoring
+  // the cleared image after an account change or background transition.
   void clear() {
     generation++;
     final previous = bytes;
@@ -57,6 +63,7 @@ class _PrivatePhotoState extends State<PrivatePhoto>
     if (mounted) setState(() => bytes = null);
   }
 
+  // Requests are not cancelled; only the newest foreground result may be shown.
   Future<void> load() async {
     final current = ++generation;
     try {

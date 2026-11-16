@@ -13,7 +13,10 @@ import 'measurements.dart';
 import 'reports.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-// Only owner-editable fields are submitted; location values must match the latest server profile.
+/// Selects owner-editable fields from the latest routed profile.
+///
+/// Callers overlay their edits; roles, derived BMI and donation pause fields are
+/// omitted because they are not client-controlled profile settings.
 Json profileBody(Json me) => {
   for (final key in [
     'display_name',
@@ -28,6 +31,9 @@ Json profileBody(Json me) => {
     key: me[key],
 };
 
+/// Edits member details and exposes private account, history and safety controls.
+///
+/// [me] remains the parent's current profile, while unsaved form edits stay local.
 class ProfileScreen extends StatefulWidget {
   final Api api;
   final Json me;
@@ -95,6 +101,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (mounted) setState(() => loadingUnits = false);
   }
 
+  // Persist display preferences separately from health data; storage failure
+  // must not turn a successful server save into a failed profile update.
   Future<void> rememberUnits() async {
     try {
       await unitStorage.write(
@@ -106,7 +114,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // Do not overwrite location with form-era coordinates after an automatic travel update.
+  // Use the current widget profile for routing fields, not the form's initial
+  // snapshot, so a parent travel refresh is preserved when details are saved.
   Future<void> save() async {
     if (!form.currentState!.validate()) return;
     setState(() {
@@ -164,6 +173,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  // Refresh server metadata and remount PrivatePhoto so old decoded bytes leave
+  // the widget cache after the upload is removed.
   Future<void> removePhoto() async {
     setState(() {
       busy = true;
@@ -237,6 +248,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  // Request sign-out only after the server confirms deletion; surface a failed
+  // deletion in this screen so the member can inspect the error and retry.
   Future<void> delete() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -276,6 +289,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     final h = heightCm ?? 0;
     final w = weightKg ?? 0;
+    // Always calculate from canonical cm/kg, regardless of the visible units.
+    // These input bounds match profile validation, not medical eligibility.
     final bmi = h >= 100 && h <= 250 && w >= 30 && w <= 300
         ? (w / ((h / 100) * (h / 100))).toStringAsFixed(1)
         : '—';

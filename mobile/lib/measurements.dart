@@ -14,12 +14,16 @@ const weightUnits = {
 };
 const poundsToKg = .45359237;
 
-// Decimal commas are accepted as decimals; grouping separators are intentionally not inferred.
+/// Parses a finite decimal; commas mean decimals, never grouping separators.
 double? measurementNumber(String input) {
   final number = double.tryParse(input.trim().replaceAll(',', '.'));
   return number != null && number.isFinite ? number : null;
 }
 
+/// Converts entered units to centimetres or kilograms, returning null if invalid.
+///
+/// Paired units require whole feet/stone and a remainder below 12/14. This only
+/// validates the representation; [MeasurementField] applies the API's bounds.
 double? metricMeasurement(String unit, String first, [String second = '']) {
   final a = measurementNumber(first);
   if (a == null || a < 0) return null;
@@ -42,10 +46,14 @@ double? metricMeasurement(String unit, String first, [String second = '']) {
   return value.isFinite ? value : null;
 }
 
-// Two decimals keep conversions readable; the unchanged canonical value retains full precision.
+/// Rounds display text to two decimals without changing the canonical value.
 String measurementText(double value) =>
     value.toStringAsFixed(2).replaceFirst(RegExp(r'\.?0+$'), '');
 
+/// Formats a metric value for one field or a whole/remainder pair.
+///
+/// Rounded remainders roll into the whole part rather than displaying 12 inches
+/// or 14 pounds alongside a smaller whole-unit value.
 (String, String) displayMeasurement(String unit, double? metric) {
   if (metric == null || !metric.isFinite) return ('', '');
   final total = switch (unit) {
@@ -65,6 +73,10 @@ String measurementText(double value) =>
   return (whole.toString(), measurementText(rest));
 }
 
+/// Edits height or weight while exposing only canonical metric values upstream.
+///
+/// Unit switches reformat the existing value; only actual text edits replace it,
+/// preventing display rounding from accumulating in BMI or saved measurements.
 class MeasurementField extends StatefulWidget {
   final bool height, enabled;
   final String unit;
@@ -109,6 +121,7 @@ class _MeasurementFieldState extends State<MeasurementField> {
     }
   }
 
+  // Reset the edit flag because reformatted text is a view of the same value.
   void showValue([String? unit]) {
     edited = false;
     formattedUnit = unit ?? widget.unit;
@@ -124,6 +137,7 @@ class _MeasurementFieldState extends State<MeasurementField> {
     super.dispose();
   }
 
+  // Both fields validate the complete paired value, not isolated partial units.
   String? validate(String? _) {
     // Display rounding must not invalidate an unchanged measurement exactly at an API boundary.
     final value = edited

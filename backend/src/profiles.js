@@ -9,6 +9,8 @@ export function registerProfileRoutes(app, ctx) {
   const { store, authenticate, countryCode, throttle, profileFor, completeProfile, relationshipBlocked } = ctx;
   const prefix = '/api/v1';
   app.get(`${prefix}/me`, { preHandler: authenticate }, request => store.transaction(request.user.country, db => profileFor(db, request.user.id)));
+  // Profile edits cannot silently overwrite newer automatic/manual location data;
+  // location changes use the dedicated path that also handles cross-country state.
   app.put(`${prefix}/me`, { preHandler: authenticate, schema: { body: schemas.profile } }, request => store.transaction(request.user.country, async db => {
     const user = request.user, body = request.body;
     await assertAccount(db, user);
@@ -91,6 +93,8 @@ export function registerProfileRoutes(app, ctx) {
     await db.run('DELETE FROM profile_photos WHERE user_id=$1', [request.user.id]);
     return { has_photo: false };
   }));
+  // Peer photo access is a current accepted-match permission, not a permanent URL grant.
+  // Return the same unavailable response for absent photos and unauthorized peers.
   app.get(`${prefix}/profiles/:uid/photo`, { preHandler: authenticate }, async (request, reply) => {
     const jpeg = await store.transaction(request.user.country, async db => {
       const uid = request.params.uid, user = request.user;
