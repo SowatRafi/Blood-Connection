@@ -9,5 +9,6 @@ if ($nodeMajor -ne '24') {
     if (-not $portable -or -not (Test-Path -LiteralPath (Join-Path $portable.FullName 'node.exe'))) {
         throw 'Install Node.js 24 LTS before running the backend tools.'
     }
+    # Change only this process and its children; do not replace another project's system-wide Node installation.
     $env:Path = "$($portable.FullName);$env:Path"
 }
