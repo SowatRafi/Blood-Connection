@@ -9,6 +9,8 @@ export function authContext(store, settings) {
     if (!settings.demo && !settings.countries.has(code)) throw new HttpError(409, 'Blood Connection is not available in this country yet');
     return code;
   };
+  // Historical reports/events can belong to an earlier country after travel. This
+  // validates the schema only; callers must still check the record's owner there.
   const storedCountry = async (value, user) => {
     const code = String(value || user.country).trim().toUpperCase();
     if (!Object.hasOwn(COUNTRIES, code) || !(await store.countries()).includes(code)) throw new HttpError(404, 'Saved country not found');
@@ -23,6 +25,8 @@ export function authContext(store, settings) {
         count=CASE WHEN rate_limits.window_start<=$3 THEN 1 ELSE rate_limits.count+1 END RETURNING count`, [key, now, cutoff]);
       if (row.count > count) throw new HttpError(429, 'Please wait before trying again');
     };
+    // Reuse a caller's connection to avoid a nested transaction holding conflicting
+    // locks. In that case, the allowance is committed or rolled back with its action.
     return connection ? work(connection) : store.transaction(null, work);
   };
   const authenticate = async request => {
@@ -55,6 +59,8 @@ export function authContext(store, settings) {
       let account = await db.one('SELECT * FROM accounts WHERE id=$1 FOR UPDATE', [uid]);
       const role = settings.demo && account ? account.role : settings.admins.has(uid) ? 'admin' : 'member';
       if (account?.banned || account?.deleted) throw new HttpError(403, account.banned ? 'This account has been permanently banned' : 'This account has been deleted');
+      // Browser headers support the admin-only website policy, but are not proof
+      // of a native app. Resource ownership and admin roles are enforced separately.
       if ((Object.hasOwn(request.headers, 'origin') || Object.keys(request.headers).some(k => k.startsWith('sec-fetch-'))) && role !== 'admin') throw new HttpError(403, 'This website is for administrators. Please use the mobile app');
       if (!account) {
         const code = requested || (role === 'admin' ? settings.demo ? 'BD' : [...settings.countries].sort()[0] : '');
@@ -66,6 +72,8 @@ export function authContext(store, settings) {
       }
       if (!settings.demo && account.role !== role) await db.run('UPDATE accounts SET role=$1 WHERE id=$2', [role, uid]);
       const path = request.url.split('?')[0];
+      // Recovery reads and location updates use the saved country, so a new GPS
+      // country header cannot prevent a traveler from completing the actual move.
       const code = (request.method === 'GET' && path === '/api/v1/me') || path === '/api/v1/location' ? account.country : countryCode(requested || account.country);
       if (account.country !== code && !(role === 'admin' && path.startsWith('/api/v1/admin/'))) throw new HttpError(409, `Your active country is ${account.country}. Use travel to change it`);
       return { id: uid, country: code, role };

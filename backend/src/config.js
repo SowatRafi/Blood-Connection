@@ -24,6 +24,8 @@ export function loadSettings(overrides = {}) {
     if (!['http:', 'https:'].includes(url.protocol) || url.origin !== origin || url.username || url.password) throw new Error('Invalid CORS origin');
   }
   if (settings.supabaseKey.startsWith('sb_secret_')) throw new Error('Use a public Supabase publishable/anon key');
+  // This decodes deployment configuration to reject a known privileged key format;
+  // it does not authenticate users. auth.js validates sessions with the auth server.
   if (settings.supabaseKey.split('.').length === 3 && decodeJwt(settings.supabaseKey).role === 'service_role') throw new Error('Supabase service-role keys cannot be public client configuration');
   if (settings.supabaseUrl) {
     const url = new URL(settings.supabaseUrl);
