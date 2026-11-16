@@ -11,6 +11,80 @@ const mint = Color(0xFFE6F3EF);
 const teal = Color(0xFF176B65);
 const rose = Color(0xFFF8E8EC);
 
+// Use shorter feedback for a tap than for spatial travel; callers can share the
+// timing without overriding the platform's reduced-motion preference.
+const motionPress = Duration(milliseconds: 120);
+const motionState = Duration(milliseconds: 200);
+const motionTravel = Duration(milliseconds: 280);
+// Preserve normal-text contrast throughout a reveal, including its first frame.
+const motionEntryOpacity = .96;
+
+/// Removes optional movement when the system requests reduced animation.
+Duration motionDuration(BuildContext context, Duration duration) =>
+    MediaQuery.disableAnimationsOf(context) ? Duration.zero : duration;
+
+/// Reveals the current content once, without delaying input or retaining old data.
+///
+/// This is an entrance treatment, not a crossfade: replacing [child] immediately
+/// removes the previous subtree, including its private images and subscriptions.
+class EntranceMotion extends StatefulWidget {
+  final Widget child;
+  const EntranceMotion({super.key, required this.child});
+
+  @override
+  State<EntranceMotion> createState() => _EntranceMotionState();
+}
+
+class _EntranceMotionState extends State<EntranceMotion>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController controller;
+  late final Animation<double> progress;
+  bool started = false;
+
+  @override
+  void initState() {
+    super.initState();
+    controller = AnimationController(vsync: this, duration: motionTravel);
+    progress = controller.drive(CurveTween(curve: Curves.easeOutCubic));
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // A covered route must not queue a decorative replay when it becomes active.
+    if (MediaQuery.disableAnimationsOf(context) ||
+        !TickerMode.valuesOf(context).enabled) {
+      controller.value = 1;
+      started = true;
+    } else if (!started) {
+      started = true;
+      controller.forward();
+    }
+  }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: progress,
+    // Cache painting of the content while the small composited transform changes.
+    child: RepaintBoundary(child: widget.child),
+    builder: (context, child) => Transform.translate(
+      offset: Offset(0, 10 * (1 - progress.value)),
+      child: Opacity(
+        // Keep content legible and interactive from its first frame.
+        opacity: motionEntryOpacity + (1 - motionEntryOpacity) * progress.value,
+        alwaysIncludeSemantics: true,
+        child: child,
+      ),
+    ),
+  );
+}
+
 /// Registers the bundled font license for the app's offline license screen.
 void registerBrandLicenses() => LicenseRegistry.addLicense(() async* {
   yield LicenseEntryWithLineBreaks([
@@ -124,6 +198,9 @@ ThemeData appTheme() => ThemeData(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
     ),
+  ),
+  iconButtonTheme: IconButtonThemeData(
+    style: IconButton.styleFrom(minimumSize: const Size(48, 48), iconSize: 24),
   ),
   inputDecorationTheme: InputDecorationTheme(
     filled: true,
