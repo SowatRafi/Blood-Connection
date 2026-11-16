@@ -4,6 +4,13 @@ An initiative by Bindubashini Boys’ 2015 & Friends.
 
 ## Unreleased
 
+### Developer documentation and feature history — 2026-11-16
+
+- Expanded purpose and contract comments across mobile features, native notification bridges, browser moderation, API authorization, storage and local tooling without changing runtime behavior.
+- Clarified coarse discovery versus private routing coordinates, notification redelivery, account/evidence retention, call-token lifetime and logical country isolation.
+- Added a feature-to-code guide and a separately labelled retrospective history branch assembled from published checkpoints. Original pre-baseline edit history is unavailable; no original dates or intermediate test results are claimed.
+- Updated contribution guidance to retain coherent feature commits through review and rebase merging, with `main` history preserved.
+
 ### JavaScript and PostgreSQL migration — 2026-11-16
 
 - Replaced the Python/FastAPI API with JavaScript on Node.js 24 LTS and Fastify while preserving the mobile/admin contract.

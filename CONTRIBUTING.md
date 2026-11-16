@@ -4,7 +4,7 @@ An initiative by Bindubashini Boys’ 2015 & Friends.
 
 ## Git workflow
 
-The initial commit records the complete local development baseline. Earlier edits were not committed individually, so this repository does not claim a reconstructed history.
+The initial commit records the complete local development baseline. Earlier edits were not committed individually. The separate `codex/reconstructed-feature-history` branch assembles those published snapshots into labelled retrospective feature groups; it is not the original development timeline. See [feature history](docs/FEATURE-HISTORY.md) for provenance and limits. Never merge that unrelated history into `main`.
 
 Start each subsequent task from an up-to-date `main` and use a short-lived branch such as `codex/report-status-fix`. Keep commits focused on one coherent change, including its relevant tests and documentation. Use descriptive messages such as `fix: preserve report status after travel`.
 
@@ -14,7 +14,9 @@ git pull --ff-only
 git switch -c codex/your-change
 ```
 
-Stage specific paths, inspect `git diff --cached`, and run `git diff --cached --check` before committing. Push the task branch and open a pull request describing the problem, resulting behavior, verification and remaining limitations. Wait for Application checks to pass before merging. Prefer a squash merge for one task and retain the PR discussion as review context. Do not rewrite shared history or force-push `main`.
+Commit each completed, coherent feature, fix, or documentation change while working; do not defer unrelated work into one final snapshot. Include the tests and documentation needed to understand that change. A useful commit explains what changed and why, rather than increasing the commit count with empty or cosmetic steps.
+
+Stage specific paths, inspect `git diff --cached`, and run `git diff --cached --check` before committing. Push the task branch and open a pull request describing the problem, resulting behavior, verification and remaining limitations. Wait for Application checks to pass before merging. Use a rebase merge to preserve reviewed feature commits; combine incidental fixups before publication when appropriate. Retain the PR discussion as review context. Do not rewrite shared history or force-push `main`.
 
 Use the contributor's configured Git identity. Do not add assistant or tool co-author trailers. Keep the community signature and third-party license notices intact.
 
@@ -32,7 +34,7 @@ git diff --cached --no-ext-diff --unified=0 | gitleaks stdin --redact=100
 
 The baseline publication also used Gitleaks 8.30.1 against a copy of every candidate file. A clean scan is not a substitute for reviewing the content being published.
 
-Give every module and named function a concise purpose comment. Explain why privacy checks, transaction locks, constraints, retry rules and non-obvious calculations exist. Keep comments synchronized with behavior; avoid comments that merely repeat an obvious assignment. Use descriptive test names to document the behavior being protected.
+Give first-party modules and named functions concise purpose comments, using Dartdoc/JSDoc where appropriate. Document non-obvious inputs, outputs, units, authorization assumptions, failure behavior and resource ownership next to the relevant contract. Explain why privacy checks, transaction locks, constraints, retry rules and non-obvious calculations exist. Keep comments synchronized with behavior; avoid comments that merely repeat an obvious assignment. Use descriptive test names to document the behavior being protected, and retain upstream comments in generated platform scaffolding.
 
 ## Validation
 

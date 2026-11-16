@@ -60,6 +60,7 @@ To enable real local audio transport without a cloud account, follow [local call
 | `docs/OPEN-SOURCE.md` | Dependency licenses, self-hosting and service boundaries |
 | `design-system/MASTER.md` | UI decisions and accessibility rules |
 | `CONTRIBUTING.md` | Git branches, commits, review and publication checks |
+| `docs/FEATURE-HISTORY.md` | Feature-to-code map and explicitly retrospective history provenance |
 | `CHANGELOG.md` | Recorded development milestones and release status |
 
 ## Verification
