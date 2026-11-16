@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta name="color-scheme" content="light">
+  <title>Blood Connection · Community care</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script type="module" src="./app.js"></script>
+</head>
+<body>
+  <!-- The skip link keeps repeated navigation out of a keyboard user's way. -->
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <aside class="sidebar" aria-label="Administration">
+    <a class="brand" href="./" aria-label="Blood Connection admin home">
+      <span class="brand-mark" aria-hidden="true"><img src="./mark.png" alt="" width="44" height="44"></span>
+      <span>blood<span class="brand-second">connection</span></span>
+    </a>
+    <div class="sidebar-label">COMMUNITY CARE</div>
+    <div class="nav-item"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6l-8-3Z"/><path d="m8 12 3 3 5-6"/></svg>Trust & safety</div>
+    <div class="sidebar-note"><strong>Care without compromise.</strong><p>Every report deserves a fair review. Every donor deserves privacy.</p></div>
+    <button class="credit credit-button" data-about>An initiative by Bindubashini Boys’ 2015 &amp; Friends</button>
+  </aside>
+
+  <div class="workspace">
+    <header class="topbar"><span class="eyebrow">ADMIN CONSOLE</span><div class="topbar-right"><span id="demo-badge" class="badge badge-demo" hidden>Local demo</span><span id="admin-name"></span><button id="sign-out" class="button-quiet" hidden>Sign out</button></div></header>
+    <main id="main" tabindex="-1">
+      <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+      <section id="login" class="login-card" aria-labelledby="login-title">
+        <div class="large-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6l-8-3Z"/><path d="m8 12 3 3 5-6"/></svg></div>
+        <p class="eyebrow">A SAFER COMMUNITY, TOGETHER</p>
+        <h1 id="login-title">A little care.<br>A lasting difference.</h1>
+        <p class="lede">Review concerns, protect donors, and keep blood donation free for everyone.</p>
+        <div id="social-buttons" class="social-buttons">
+          <button class="button-secondary" data-provider="google" disabled>Continue with Google</button>
+          <button class="button-secondary" data-provider="apple" disabled>Continue with Apple</button>
+          <button class="button-secondary" data-provider="facebook" disabled>Continue with Facebook</button>
+        </div>
+        <p id="auth-status" class="fineprint">Checking secure sign-in configuration…</p>
+        <fieldset id="demo-login" class="demo-panel" hidden>
+          <legend>Local testing</legend>
+          <label class="checkbox-label"><input id="demo-consent" type="checkbox">I understand these are fictional demo accounts.</label>
+          <button id="enter-demo" class="button-primary" disabled>Open demo console <span aria-hidden="true">→</span></button>
+        </fieldset>
+        <p class="fineprint">Administrators can use this website or the mobile app. Members connect through the mobile app. Signing in does not grant admin access.</p>
+      </section>
+
+      <section id="dashboard" hidden aria-labelledby="dashboard-title">
+        <div class="page-heading"><div><p class="eyebrow">TRUST & SAFETY</p><h1 id="dashboard-title">People first. Always.</h1><p class="lede">A thoughtful review helps keep this community safe.</p></div><div class="country-control"><label for="country">Review country</label><select id="country" aria-describedby="country-help"></select></div></div>
+        <p id="country-help" class="fineprint country-help">Reports stay in their country. Confirmed money-request bans apply worldwide.</p>
+        <div class="stats" aria-label="Community overview">
+          <div class="stat-card"><span class="stat-label">Awaiting your care</span><strong id="pending-count">—</strong><span>Reports to review</span></div>
+          <div class="stat-card"><span class="stat-label">Ready to help</span><strong id="donor-count">—</strong><span>Available donors in this country</span></div>
+          <div class="stat-card"><span class="stat-label">Community protected</span><strong id="ban-count">—</strong><span>Lifetime bans worldwide</span></div>
+        </div>
+        <div class="section-heading"><div><h2>Report inbox</h2><p class="fineprint">Read the evidence before making a decision.</p></div><button id="refresh" class="button-secondary">Refresh inbox</button></div>
+        <div class="review-grid">
+          <section class="inbox panel" aria-label="Reports"><div class="inbox-toolbar"><label for="status-filter">Show</label><select id="status-filter"><option value="pending">Awaiting review</option><option value="all">All reports</option></select></div><div id="report-list" class="report-list" aria-live="polite"></div></section>
+          <section id="report-detail" class="detail panel" aria-label="Report details"><div class="empty-state"><h3>Your careful review matters.</h3><p>Select a report to view the concern and conversation evidence.</p></div></section>
+        </div>
+        <div class="privacy-note"><svg aria-hidden="true" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><p>Private by design. Review only the evidence needed for this report. Donor phone numbers are never collected by Blood Connection.</p></div>
+      </section>
+      <button class="mobile-credit credit-button" data-about>An initiative by Bindubashini Boys’ 2015 &amp; Friends</button>
+    </main>
+  </div>
+
+  <!-- Native dialog supplies focus trapping and Escape handling without a custom widget. -->
+  <dialog id="review-dialog" aria-labelledby="dialog-title">
+    <form id="review-form">
+      <p class="eyebrow">REVIEW DECISION</p><h2 id="dialog-title">Confirm your decision</h2><p id="dialog-description"></p>
+      <label for="review-note">Review note <span class="required">(required)</span></label><textarea id="review-note" rows="4" minlength="5" maxlength="2000" required placeholder="Explain what the evidence shows and why this decision is appropriate."></textarea>
+      <label id="ban-confirm-label" class="checkbox-label"><input id="ban-confirm" type="checkbox">I reviewed the evidence and confirmed a request for money.</label>
+      <p id="dialog-error" class="form-error" role="alert" hidden></p>
+      <div class="dialog-actions"><button type="button" id="cancel-review" class="button-secondary">Keep reviewing</button><button type="submit" id="submit-review" class="button-primary">Confirm decision</button></div>
+    </form>
+  </dialog>
+  <!-- About explains the mission with the same concise signature used throughout the app. -->
+  <dialog id="about-dialog" aria-labelledby="about-title">
+    <form method="dialog">
+      <img src="./mark.png" alt="Blood Connection" width="56" height="56" class="about-mark">
+      <h2 id="about-title">A connection that matters.</h2>
+      <p>An initiative by Bindubashini Boys’ 2015 &amp; Friends</p>
+      <p>Connecting people through safe, voluntary blood donation.</p>
+      <div class="dialog-actions"><button class="button-primary">Close</button></div>
+    </form>
+  </dialog>
+</body>
+</html>
