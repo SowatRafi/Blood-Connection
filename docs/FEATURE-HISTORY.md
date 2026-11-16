@@ -6,7 +6,7 @@ An initiative by Bindubashini Boys’ 2015 & Friends.
 
 `main` contains the authentic published history. Its initial commit captured an already-developed local application; earlier individual feature edits were not committed. Git cannot recover their exact order, dates, discarded designs or intermediate behavior. A larger commit count cannot restore that missing evidence.
 
-At the user's request, [`codex/reconstructed-feature-history`](https://github.com/SowatRafi/Blood-Connection/commits/codex/reconstructed-feature-history) provides a separate, explicitly retrospective review history. It has an independent root and must not be merged into `main`. The original branch and commit IDs remain intact. The new comment improvements are offered separately on `codex/feature-comments-and-history` for normal pull-request review.
+At the user's request, the [archive tag `archive/reconstructed-feature-history-2026-11-16`](https://github.com/SowatRafi/Blood-Connection/commits/archive/reconstructed-feature-history-2026-11-16) preserves 48 explicitly retrospective commits, originally prepared on a separate branch. It has an independent root and must not be merged into `main`. The archive retains its original commit IDs while `main` remains the only long-lived working branch. The 13 actual comment/documentation improvements were reviewed separately in [PR #2](https://github.com/SowatRafi/Blood-Connection/pull/2); the archive predates the follow-up documentation that replaces branch links with this tag.
 
 The reconstruction uses only these published checkpoints and the subsequent comment/documentation commits:
 
@@ -15,22 +15,24 @@ The reconstruction uses only these published checkpoints and the subsequent comm
 | [`4e90456`](https://github.com/SowatRafi/Blood-Connection/commit/4e9045697acafbf4bf5ff577db2826fd234f9fab) | First published development baseline: Flutter, Python API, moderation, assets, tests and documentation |
 | [`c78ac92`](https://github.com/SowatRafi/Blood-Connection/commit/c78ac92) | JavaScript/Fastify and PostgreSQL implementation added alongside the existing API |
 | [`1dbbafd`](https://github.com/SowatRafi/Blood-Connection/commit/1dbbafdb4db1a6fbc75d7b0a4ad48362691bda79) | Runtime/tooling/CI cutover to JavaScript and removal of the Python API |
-| `codex/feature-comments-and-history` | Actual new, feature-scoped comment changes and this documentation |
+| [`9ab65a9`](https://github.com/SowatRafi/Blood-Connection/commit/9ab65a9c75dfc2ad829f21c1238f92aefda63182) | Original review snapshot containing 13 actual comment/documentation commits; source of the final archived tree |
 
 Every reconstructed commit changes real tracked files, uses the date of reconstruction, identifies its source commit, and carries a `reconstruction(scope):` subject. Whole files are grouped by responsibility; no original implementation sequence is invented. Shared files such as the old Python API and the mobile application shell already contained several features, so their historical internals are not artificially split into pretend standalone implementations.
 
-Intermediate assembly commits may have unresolved imports or missing scaffolding. They are reading checkpoints, **not independently buildable or tested releases**. Checkpoint boundaries reproduce their source Git trees exactly; the final tree reproduces the comment/documentation branch snapshot identified in the final commit. This verifies file paths, modes and content, not just a visual diff. Later development may make the live branches diverge; compare the immutable source hash in the reconstruction commit.
+Intermediate assembly commits may have unresolved imports or missing scaffolding. They are reading checkpoints, **not independently buildable or tested releases**. Checkpoint boundaries reproduce their source Git trees exactly; the final archived tree reproduces the review snapshot identified in the final commit. This verifies file paths, modes and content, not just a visual diff. Subsequent documentation and development on `main` are outside this fixed archive; compare the immutable source hash in the reconstruction commit.
 
-From a checkout with both branches fetched, verify the final snapshot using the source hash from the last reconstruction commit:
+Fetch the archive tag and original pull-request objects, then verify the final snapshot using the source hash from the last reconstruction commit. Fetching the PR reference below does not create another working branch:
 
 ```sh
-git show -s --format=%B origin/codex/reconstructed-feature-history
+git fetch origin tag archive/reconstructed-feature-history-2026-11-16
+git fetch origin refs/pull/2/head
+git show -s --format=%B archive/reconstructed-feature-history-2026-11-16
 git rev-parse SOURCE_COMMIT^{tree}
-git rev-parse origin/codex/reconstructed-feature-history^{tree}
-git diff --exit-code SOURCE_COMMIT origin/codex/reconstructed-feature-history
+git rev-parse archive/reconstructed-feature-history-2026-11-16^{tree}
+git diff --exit-code SOURCE_COMMIT archive/reconstructed-feature-history-2026-11-16
 ```
 
-Replace `SOURCE_COMMIT` with the full `Source-commit` value printed by the first command. Matching tree IDs and an empty diff establish exact parity. No force-push, backdated author metadata, empty filler commits, device data or unpublished working files are needed for this reconstruction.
+Replace `SOURCE_COMMIT` with the full `Source-commit` value printed by `git show`. Matching tree IDs and an empty diff establish exact parity. No force-push, backdated author metadata, empty filler commits, device data or unpublished working files are needed for this reconstruction.
 
 ## Feature-to-code map
 
