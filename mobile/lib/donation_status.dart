@@ -4,6 +4,10 @@ import 'package:flutter/material.dart';
 import 'api.dart';
 import 'ui.dart';
 
+/// Displays willingness and the server's recovery deadline as one donation status.
+///
+/// A cooldown temporarily overrides availability without changing the member's
+/// preference. [compact] moves infrequent actions into a sheet on the home page.
 class DonationStatusCard extends StatefulWidget {
   final Json me;
   final ValueChanged<bool>? onAvailability;
@@ -340,7 +344,7 @@ class _DonationStatusCardState extends State<DonationStatusCard>
   }
 }
 
-// Round up the last minute so an active pause never reads as zero time remaining.
+/// Formats the recovery countdown, rounding up so an active pause never reads zero.
 String donationTimeRemaining(Duration remaining) {
   if (remaining <= Duration.zero) return 'Cooldown complete';
   final minutes =
