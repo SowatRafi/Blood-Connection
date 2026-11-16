@@ -6,7 +6,10 @@ import 'package:image_picker/image_picker.dart';
 import 'api.dart';
 import 'ui.dart';
 
-// A single report flow gives request and conversation entry points the same safety guarantees.
+/// Opens the shared reporting flow for exactly one request or conversation context.
+///
+/// The server derives the reported participant from that context rather than
+/// trusting a caller-supplied account identity.
 Future<void> showReport(
   BuildContext context,
   Api api, {
@@ -25,6 +28,7 @@ Future<void> showReport(
   ),
 );
 
+// Track acknowledgements per image so a partial upload can resume within the same private draft.
 class _DraftEvidence {
   final String name;
   final Uint8List bytes;
@@ -36,6 +40,10 @@ class _DraftEvidence {
   void evict() => unawaited(image.evict().catchError((_) => false));
 }
 
+/// Collects a report and up to three private evidence images for an existing interaction.
+///
+/// Exactly one of [conversationId] and [requestId] identifies the interaction.
+/// A saved report remains valid even if an evidence upload must be retried.
 class ReportScreen extends StatefulWidget {
   final Api api;
   final String? conversationId, requestId, peerName;
@@ -56,6 +64,7 @@ class _ReportScreenState extends State<ReportScreen>
     with WidgetsBindingObserver {
   final form = GlobalKey<FormState>();
   final details = TextEditingController();
+  // Reuse across retries when the server may have saved a report whose acknowledgement was lost.
   final idempotencyKey = newSubmissionKey();
   final evidence = <_DraftEvidence>[];
   String reason = 'money_request';
@@ -465,13 +474,14 @@ class _ReportScreenState extends State<ReportScreen>
   );
 }
 
-// Only the public review outcome is shown; internal moderator notes are deliberately never read.
+/// Labels the reporter-visible outcome without reading internal moderator notes.
 String reportStatusLabel(Json report) => report['status'] != 'reviewed'
     ? 'Awaiting review'
     : report['outcome'] == 'banned'
     ? 'Reviewed · action taken'
     : 'Reviewed · closed';
 
+/// Maps known reason codes to member-facing copy, with a safe label for other values.
 String reportReasonLabel(Object? reason) => switch (reason) {
   'money_request' => 'Asked for money',
   'harassment' => 'Harassment',
@@ -480,13 +490,14 @@ String reportReasonLabel(Object? reason) => switch (reason) {
   _ => 'Other concern',
 };
 
-// Device-local time makes the timeline useful while retaining an unambiguous calendar date.
+/// Formats a review timestamp in device-local time with an explicit calendar date.
 String reportTime(BuildContext context, Object? value) {
   final parsed = DateTime.tryParse(value?.toString() ?? '')?.toLocal();
   if (parsed == null) return 'Not yet available';
   return '${shortDate(parsed.toIso8601String())} · ${MaterialLocalizations.of(context).formatTimeOfDay(TimeOfDay.fromDateTime(parsed))}';
 }
 
+/// Shows only the signed-in reporter's submissions, including reports from prior countries.
 class MyReportsScreen extends StatefulWidget {
   final Api api;
   const MyReportsScreen({super.key, required this.api});
@@ -634,6 +645,10 @@ class _MyReportsScreenState extends State<MyReportsScreen>
   );
 }
 
+/// Displays one owned report using its original country independently of search location.
+///
+/// Protected descriptions and evidence are removed on backgrounding and fetched
+/// again on resume so stale results cannot restore content across that boundary.
 class ReportDetailScreen extends StatefulWidget {
   final Api api;
   final String reportId, reportCountry;
@@ -683,7 +698,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen>
     }
   }
 
-  // Backgrounding removes protected content and makes every in-flight response stale until reauthentication.
+  // Backgrounding removes protected content; resume fetches it through the authenticated API again.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     active = state == AppLifecycleState.resumed;
@@ -696,6 +711,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen>
     }
   }
 
+  // Carry the report's country as a query rather than mutating the user's current search region.
   Future<void> load() async {
     if (loading || !active) return;
     loading = true;
@@ -928,6 +944,7 @@ class _PrivateReportImageState extends State<_PrivateReportImage>
     }
   }
 
+  // Remove both the widget reference and Flutter's decoded-image cache entry on every privacy boundary.
   void clear() {
     if (image != null) unawaited(image!.evict().catchError((_) => false));
     image = null;
@@ -945,6 +962,7 @@ class _PrivateReportImageState extends State<_PrivateReportImage>
     }
   }
 
+  // A later route, account or lifecycle change invalidates these bytes even if the fetch succeeds.
   Future<void> load() async {
     final epoch = ++generation;
     clear();
