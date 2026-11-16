@@ -10,6 +10,7 @@ An initiative by Bindubashini Boys’ 2015 & Friends.
 - Clarified coarse discovery versus private routing coordinates, notification redelivery, account/evidence retention, call-token lifetime and logical country isolation.
 - Added a feature-to-code guide and a separately labelled retrospective history branch assembled from published checkpoints. Original pre-baseline edit history is unavailable; no original dates or intermediate test results are claimed.
 - Updated contribution guidance to retain coherent feature commits through review and rebase merging, with `main` history preserved.
+- Preserved the 48 retrospective commits under the archive tag `archive/reconstructed-feature-history-2026-11-16` so completed task branches can be removed and `main` stays the only working branch.
 
 ### JavaScript and PostgreSQL migration — 2026-11-16
 

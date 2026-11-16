@@ -4,9 +4,11 @@ An initiative by Bindubashini Boys’ 2015 & Friends.
 
 ## Git workflow
 
-The initial commit records the complete local development baseline. Earlier edits were not committed individually. The separate `codex/reconstructed-feature-history` branch assembles those published snapshots into labelled retrospective feature groups; it is not the original development timeline. See [feature history](docs/FEATURE-HISTORY.md) for provenance and limits. Never merge that unrelated history into `main`.
+The initial commit records the complete local development baseline. Earlier edits were not committed individually. The archive tag `archive/reconstructed-feature-history-2026-11-16` preserves published snapshots assembled into labelled retrospective feature groups; it is not the original development timeline. See [feature history](docs/FEATURE-HISTORY.md) for provenance and limits. Never merge that unrelated history into `main`.
 
 Start each subsequent task from an up-to-date `main` and use a short-lived branch such as `codex/report-status-fix`. Keep commits focused on one coherent change, including its relevant tests and documentation. Use descriptive messages such as `fix: preserve report status after travel`.
+
+`main` is the only long-lived working branch. After a pull request is merged and its changes are verified on `main`, delete its local and remote task branches. Preserve historical reference snapshots with archive tags rather than additional working branches.
 
 ```sh
 git switch main
