@@ -7,7 +7,9 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:unifiedpush_android/unifiedpush_android.dart';
 import 'api.dart';
 
-// Notification routing uses a closed set of targets, never a route name supplied by a payload.
+/// A validated request or report reference, never an arbitrary route from push data.
+///
+/// Report targets carry their original country so travel does not break review links.
 class PrivateNotificationTarget {
   final String? requestId, reportId, reportCountry;
   const PrivateNotificationTarget.request(String id)
@@ -26,7 +28,9 @@ class PrivateNotificationTarget {
       : 'report:$reportCountry:$reportId';
 }
 
-// External data cannot become an arbitrary route, query value or lock-screen disclosure.
+/// Parses external push data into a bounded target, returning null for malformed input.
+///
+/// The target selects navigation only; the API must authorize its content after sign-in.
 PrivateNotificationTarget? notificationTarget(Object? payload) {
   try {
     final value = payload is String ? jsonDecode(payload) : payload;
@@ -52,10 +56,14 @@ PrivateNotificationTarget? notificationTarget(Object? payload) {
   }
 }
 
-// Existing request callers can still use the narrow parser without accepting report targets.
+/// Returns only a request target for callers that cannot handle report navigation.
 String? notificationRequest(Object? payload) =>
     notificationTarget(payload)?.requestId;
 
+/// Coordinates opt-in device enrollment, private alerts and signed-in ownership.
+///
+/// Transport callbacks can outlive a session. The persisted owner filters headless
+/// Android delivery; the epoch invalidates asynchronous work after detachment.
 class NotificationService {
   static final status = ValueNotifier<String>('Notifications are off');
   static final openedTarget = ValueNotifier<PrivateNotificationTarget?>(null);
@@ -73,7 +81,10 @@ class NotificationService {
   static int _epoch = 0;
   static String get _key => 'notification_device_${_owner ?? ''}';
 
-  // UnifiedPush starts a small headless Flutter engine; it never needs an OAuth token to display a private alert.
+  /// Installs native callbacks once, without requesting notification permission.
+  ///
+  /// UnifiedPush also uses this in a headless Flutter engine, where displaying a
+  /// generic alert requires no OAuth token or private profile fetch.
   static Future<void> initialize(List<String> args) async {
     if (kIsWeb || _ready) return;
     if (defaultTargetPlatform != TargetPlatform.android &&
@@ -156,7 +167,10 @@ class NotificationService {
     }
   }
 
-  // Reattaching refreshes enrollment after travel but never prompts on every profile refresh.
+  /// Attaches the current member and restores an existing notification opt-in.
+  ///
+  /// Existing opt-in restores enrollment for a new signed-in session without
+  /// prompting again. Administrator sessions do not enroll member alerts.
   static Future<void> attach(
     Api api, {
     required String userId,
@@ -228,7 +242,7 @@ class NotificationService {
     if (identical(_enrollment, pending)) _enrollment = null;
   }
 
-  // Permission is requested only after the person presses Enable notifications.
+  /// Opens the selected Android push companion so its service can be configured.
   static Future<void> openDistributor() async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
     final package = await _push.getDistributor();
@@ -247,6 +261,7 @@ class NotificationService {
     }
   }
 
+  /// Requests permission after an explicit opt-in and enrolls this session's device.
   static Future<void> enable() async {
     if (_api == null || _owner == null || _enabling) return;
     _enabling = true;
@@ -312,7 +327,7 @@ class NotificationService {
     }
   }
 
-  // Clear the distributor, local alerts and device ownership on sign-out, even during a network outage.
+  /// Turns alerts off while retaining the signed-in API for a later explicit opt-in.
   static Future<void> disable() async {
     final api = _api;
     final owner = _owner;
@@ -322,6 +337,10 @@ class NotificationService {
     _owner = owner;
   }
 
+  /// Revokes session ownership and clears local alerts during sign-out or replacement.
+  ///
+  /// Pending enrollment settles before deletion, preventing a late POST from
+  /// recreating the device after the sign-out DELETE has completed.
   static Future<void> detach() async {
     openedTarget.value = null;
     if (!_ready || kIsWeb) return;
@@ -360,6 +379,7 @@ class NotificationService {
     status.value = 'Notifications are off';
   }
 
+  // Use local fixed copy, never server-supplied message text, for lock-screen and watch previews.
   static Future<void> _show(List<int> content) async {
     final target = notificationTarget(
       utf8.decode(content, allowMalformed: true),
