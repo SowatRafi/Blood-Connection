@@ -12,16 +12,20 @@ import 'private_photo.dart';
 import 'messaging.dart';
 import 'reports.dart';
 
+/// Build-time tile endpoint shared by the donor and accepted-meeting maps.
 const mapTileUrl = String.fromEnvironment(
   'MAP_TILE_URL',
   defaultValue: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
 );
+/// Attribution displayed with tiles; deployments must match it to their provider.
 const mapAttribution = String.fromEnvironment(
   'MAP_ATTRIBUTION',
   defaultValue: '© OpenStreetMap contributors',
 );
 
-// A scrollable picker keeps all map apps reachable with large text on a short phone screen.
+/// Offers navigation providers and explains that the chosen service receives the destination.
+///
+/// The sheet scrolls so large text does not hide options on a short phone screen.
 Future<String?> chooseDirectionsApp(
   BuildContext context,
 ) => showModalBottomSheet<String>(
@@ -49,6 +53,7 @@ Future<String?> chooseDirectionsApp(
   ),
 );
 
+/// Lists requests and private event updates while the app is in the foreground.
 class RequestsScreen extends StatefulWidget {
   final Api api;
   final Json me;
@@ -91,6 +96,7 @@ class _RequestsScreenState extends State<RequestsScreen>
     super.dispose();
   }
 
+  // Refresh both collections together so failure does not leave an apparently current inbox.
   Future<void> load() async {
     if (loading || !active) return;
     loading = true;
@@ -259,6 +265,7 @@ class _RequestsScreenState extends State<RequestsScreen>
   );
 }
 
+/// Describes coordination state from this participant's perspective, not clinical completion.
 String requestStatus(Json request) => switch (request['status']) {
   'accepted' => 'Accepted · ready to coordinate',
   'completed' => 'Coordination completed',
@@ -272,6 +279,7 @@ String requestStatus(Json request) => switch (request['status']) {
         : 'Your help is requested',
 };
 
+/// Turns selected nearby donors into an invitation with an explicitly confirmed meeting point.
 class CreateRequestScreen extends StatefulWidget {
   final Api api;
   final Json me;
@@ -304,6 +312,7 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
     super.dispose();
   }
 
+  // Refresh country before geocoding: a traveller's old profile must not determine the meeting region.
   Future<void> create() async {
     if (!consent || destination.text.trim().length < 3) {
       setState(
@@ -449,6 +458,10 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
   );
 }
 
+/// Presents server-authorized request details and confirmed coordination transitions.
+///
+/// Acceptance controls access to private photos and the meeting point; completing
+/// coordination only schedules donation confirmation, not a donation record.
 class RequestDetailScreen extends StatefulWidget {
   final Api api;
   final Json me;
@@ -490,6 +503,7 @@ class _RequestDetailScreenState extends State<RequestDetailScreen>
     super.dispose();
   }
 
+  // Do not start polling during a mutation, and clear details if access can no longer be verified.
   Future<void> load() async {
     if (loading || acting || !active) return;
     loading = true;
@@ -513,6 +527,7 @@ class _RequestDetailScreenState extends State<RequestDetailScreen>
     }
   }
 
+  // Explain each sharing consequence before submission; the server arbitrates competing acceptances.
   Future<void> act(String action) async {
     final text = switch (action) {
       'accept' =>
@@ -746,7 +761,10 @@ class _RequestDetailScreenState extends State<RequestDetailScreen>
   }
 }
 
-// Only the explicitly shared hospital/meeting point is mapped; another member's precise location is never used.
+/// Maps only an accepted match's shared meeting point, never the other member's exact position.
+///
+/// The displayed distance is straight-line from the caller's saved location;
+/// the external navigation provider calculates its own route after consent.
 class MeetingMap extends StatefulWidget {
   final Json request, me;
   final TileProvider? tileProvider;
@@ -768,6 +786,7 @@ class _MeetingMapState extends State<MeetingMap> {
     super.dispose();
   }
 
+  // Fixed provider URLs carry only the meeting coordinates, without app credentials or member IDs.
   Future<void> go() async {
     final choice = await chooseDirectionsApp(context);
     if (choice == null) return;
