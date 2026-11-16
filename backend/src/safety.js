@@ -106,6 +106,8 @@ export function registerSafetyRoutes(app, ctx) {
     });
   });
 
+  // Travel moves the active profile, not its historical reports. Merge only this
+  // reporter's rows across schemas and keep the originating country for later reads.
   app.get(`${prefix}/reports`, member, async request => {
     let items = [];
     for (const country of store.countries()) {
@@ -151,6 +153,8 @@ export function registerSafetyRoutes(app, ctx) {
           return { id: existing.id, status: existing.status };
         }
       }
+      // Snapshot limited conversation context when filed; later message erasure
+      // does not rewrite the evidence on which a moderation decision was based.
       const evidence = await db.all('SELECT sender_id,body,created_at FROM messages WHERE conversation_id=$1 ORDER BY created_at DESC LIMIT 20', [conversationId]);
       const id = newId();
       await db.run('INSERT INTO reports(id,reporter_id,reported_id,conversation_id,reason,details,status,evidence,created_at,request_id,idempotency_key) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',
@@ -248,6 +252,8 @@ export function registerSafetyRoutes(app, ctx) {
       active_donors: (await db.all('SELECT * FROM accounts WHERE country=$1', [request.user.country])).filter(available).length, country: request.user.country };
   }));
 
+  // Export the member's own submissions across countries, excluding another
+  // participant's messages and confidential administrator notes.
   app.get(`${prefix}/me/export`, member, async request => {
     const result = await store.transaction(request.user.country, async db => {
       await assertAccount(db, request.user);
@@ -271,6 +277,9 @@ export function registerSafetyRoutes(app, ctx) {
     return result;
   });
 
+  // Commit the global tombstone and retry job before regional scrubbing. Retained
+  // report snapshots and audit records support safety review; this is not a purge
+  // of every historical reference to the account.
   app.delete(`${prefix}/me`, member, async request => {
     await store.transaction(null, async db => {
       await assertAccount(db, request.user, { country: false });
