@@ -11,14 +11,14 @@ const mint = Color(0xFFE6F3EF);
 const teal = Color(0xFF176B65);
 const rose = Color(0xFFF8E8EC);
 
-// Bundle both font and license so typography works offline without contacting a font service.
+/// Registers the bundled font license for the app's offline license screen.
 void registerBrandLicenses() => LicenseRegistry.addLicense(() async* {
   yield LicenseEntryWithLineBreaks([
     'Manrope',
   ], await rootBundle.loadString('assets/fonts/OFL.txt'));
 });
 
-// Share the generated master and its padding with launcher icons so the identity stays consistent.
+/// Uses the shared brand master and launcher padding at any in-app display size.
 class BrandMark extends StatelessWidget {
   final double size;
   const BrandMark({super.key, this.size = 48});
@@ -47,7 +47,7 @@ class BrandMark extends StatelessWidget {
   );
 }
 
-// Material controls retain native focus, semantics and scalable text instead of custom gestures.
+/// Applies the brand to Material controls while retaining their native semantics.
 ThemeData appTheme() => ThemeData(
   useMaterial3: true,
   fontFamily: 'Manrope',
@@ -146,7 +146,7 @@ ThemeData appTheme() => ThemeData(
   ),
 );
 
-// A scrollable readable-width page works on small phones, tablets and large accessibility text.
+/// Constrains reading width while allowing scrolling on phones and large text.
 class PageBody extends StatelessWidget {
   final List<Widget> children;
   const PageBody({super.key, required this.children});
@@ -167,6 +167,7 @@ class PageBody extends StatelessWidget {
   );
 }
 
+/// Gives grouped content the common card treatment and internal spacing.
 class Panel extends StatelessWidget {
   final Widget child;
   final Color? color;
@@ -178,7 +179,7 @@ class Panel extends StatelessWidget {
   );
 }
 
-// Blood group is always visible as text, so its meaning never depends on the red color alone.
+/// Identifies the blood group with text, so color is never the only indication.
 class BloodBadge extends StatelessWidget {
   final String group;
   const BloodBadge(this.group, {super.key});
@@ -205,6 +206,7 @@ class BloodBadge extends StatelessWidget {
   );
 }
 
+/// Presents explanatory text with a wrapping layout and a supporting icon.
 class Notice extends StatelessWidget {
   final String text;
   final IconData icon;
@@ -238,7 +240,7 @@ class Notice extends StatelessWidget {
   );
 }
 
-// Errors remain in the screen and provide a retry action instead of disappearing in a toast.
+/// Keeps a recoverable failure and its retry action visible in the page.
 class ErrorPanel extends StatelessWidget {
   final String message;
   final VoidCallback retry;
@@ -260,6 +262,7 @@ class ErrorPanel extends StatelessWidget {
   );
 }
 
+/// Shows transient action feedback through the screen's existing messenger.
 void feedback(BuildContext context, String message) =>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
