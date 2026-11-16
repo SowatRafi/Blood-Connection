@@ -1,0 +1,7 @@
+# Normalize text across Windows, macOS and Linux; preserve generated icon bytes.
+* text=auto eol=lf
+*.png binary
+*.ttf binary
+# Keep the upstream font license verbatim, including its original trailing space.
+admin/assets/OFL.txt -whitespace
+mobile/assets/fonts/OFL.txt -whitespace

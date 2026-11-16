@@ -1,0 +1,23 @@
+# Bind inside the container; Docker publishes only the host's loopback addresses.
+port: 7880
+bind_addresses:
+  - "0.0.0.0"
+rtc:
+  # TCP media can be forwarded to an Android phone with adb reverse.
+  tcp_port: 7881
+  use_external_ip: false
+  node_ip: "127.0.0.1"
+  enable_loopback_candidate: true
+  # UDP is intentionally not published by Compose; local clients fall back to TCP.
+  port_range_start: 50000
+  port_range_end: 50100
+keys:
+  # This is a public, local-development fixture, never a production secret.
+  bloodconnection-local: "local-development-only-blood-connection-not-for-production-2015"
+room:
+  # Donation calls are one-to-one; abandoned empty rooms should expire quickly.
+  max_participants: 2
+  empty_timeout: 60
+  departure_timeout: 10
+logging:
+  level: warn

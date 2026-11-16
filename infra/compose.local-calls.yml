@@ -1,0 +1,22 @@
+# Optional local-only media service. Never deploy these public demo credentials.
+name: blood-connection-local-calls
+services:
+  livekit:
+    # Inspected image reports LiveKit 1.13.11; the digest prevents silent upgrades.
+    image: livekit/livekit-server@sha256:25cd902de7cacbd5f1f779f6a6ac1eae20ba8f56b0935934ce6b0ab80d1e3d20
+    command: ["--config", "/etc/livekit/local.yaml"]
+    # Loopback host bindings keep the demo inaccessible from the LAN/Internet.
+    ports:
+      - "127.0.0.1:7880:7880/tcp"
+      - "127.0.0.1:7881:7881/tcp"
+    volumes:
+      - ./livekit.local.yaml:/etc/livekit/local.yaml:ro
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    # Manual start/stop avoids leaving a demo service running after a reboot.
+    restart: "no"
