@@ -51,21 +51,26 @@ export class Store {
     return this;
   }
 
+  /** Discover only already-provisioned schemas; an HTTP country header cannot cause DDL. */
   async refreshRegions() {
     const { rows } = await this.pool.query("SELECT nspname FROM pg_catalog.pg_namespace WHERE nspname ~ '^country_[a-z]{2}$'");
     this.regions = new Set(rows.map(row => row.nspname.slice(8).toUpperCase()).filter(code => allowedCountries.has(code)));
     return [...this.regions].sort();
   }
 
+  /** Return a copy so workers cannot accidentally mutate the provisioned-country cache. */
   regionNames() { return [...this.regions].sort(); }
+  /** Keep the domain-facing country catalog limited to deployable, existing storage. */
   countries() { return this.regionNames(); }
 
+  /** Unknown or unprovisioned countries fail before any dynamically qualified SQL executes. */
   async ensureRegion(country) {
     countrySchema(country);
     if (!this.regions.has(country)) await this.refreshRegions();
     if (!this.regions.has(country)) throw Object.assign(new Error('This country is not provisioned. Ask an administrator to run its migration.'), { statusCode: 409 });
   }
 
+  /** Serializable retries preserve cross-schema safety invariants when multiple API workers race. */
   async transaction(country, work) {
     if (typeof country === 'function') { work = country; country = null; }
     if (country) await this.ensureRegion(country);
@@ -86,6 +91,7 @@ export class Store {
     }
   }
 
+  /** Explicit migration ownership keeps schema changes and runtime privileges independently controllable. */
   async migrate(countries = this.settings.demo ? ISO_COUNTRY_CODES : [...(this.settings.countries ?? [])]) {
     if (!this.settings.migrationDatabaseUrl) throw new Error('MIGRATION_DATABASE_URL is required for schema changes');
     const requested = [...new Set(countries)].sort();
@@ -129,6 +135,7 @@ export class Store {
     return this;
   }
 
+  /** Create fictional fixtures only on a new demo database, preserving all existing interactive records. */
   async seed() {
     if (!this.settings.demo) throw new Error('Fictional fixtures require explicit demo mode');
     await this.ensureRegion('BD');
@@ -174,6 +181,7 @@ export class Store {
     if (this.settings.demo) await this.seed();
   }
 
+  /** Close both identities' pools so shutdown/tests leave no idle database sessions. */
   async close() {
     await Promise.all([this.pool.end(), this.migrationPool?.end()]);
   }

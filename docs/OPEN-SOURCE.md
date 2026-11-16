@@ -12,7 +12,7 @@ The selected logo originated from a one-time image-generation service during des
 
 ## Direct dependency inventory
 
-The following versions/licenses were inspected from the resolved Flutter package cache or installed Python package metadata on 15 November 2026. `mobile/pubspec.lock` records exact Dart resolution; backend versions are pinned in `backend/requirements.txt`. This is a direct-dependency inventory, not a claim that every transitive binary or optional SDK has undergone a complete license audit.
+Flutter versions/licenses below were inspected from the resolved package cache on 15 November 2026. JavaScript backend versions/licenses were inspected from `backend/package-lock.json` on 16 November 2026; Node and PostgreSQL/PostGIS versions were checked against the installed runtime/container. `mobile/pubspec.lock` and `backend/package-lock.json` record exact dependency resolution. This is a direct-dependency inventory, not a claim that every transitive binary or optional SDK has undergone a complete license audit.
 
 | Component | Inspected version | License / role |
 |---|---|---|
@@ -30,20 +30,26 @@ The following versions/licenses were inspected from the resolved Flutter package
 | `url_launcher` | 6.3.3 | BSD-3-Clause; external navigation handoff |
 | `unifiedpush_android` | 3.5.0 | Apache-2.0; official Android push connector, without unused desktop implementations |
 | `flutter_local_notifications` | 22.0.1 | BSD-3-Clause; native notification presentation |
-| FastAPI | 0.141.1 | MIT; API framework |
-| Starlette | 1.6.0 | BSD-3-Clause; HTTP/ASGI layer |
-| Uvicorn | 0.52.4 | BSD-3-Clause; local API server |
-| HTTPX | 0.28.1 | BSD-3-Clause; server-side HTTP |
-| pycountry | 24.6.1 | LGPL-2.1-only; ISO country data wrapper |
-| PyJWT | 2.13.0 | MIT; short-lived media credentials |
-| Pillow | 13.0.0 | MIT-CMU; validated profile photo decoding/re-encoding |
-| pywebpush | 2.5.0 | MPL-2.0; standards-based push payload encryption |
-| cryptography | 49.0.0 | Apache-2.0 OR BSD-3-Clause; push encryption/key validation |
-| `h2` | 4.4.1 | MIT; HTTPX HTTP/2 extra used for APNs |
+| Node.js | 24.22.3 locally; 24 LTS line in CI | MIT plus bundled third-party notices; JavaScript runtime, HTTP/2, fetch and crypto |
+| Fastify | 5.12.8 | MIT; API routing, JSON-schema validation and request lifecycle |
+| `@fastify/cors` | 11.4.3 | MIT; explicit browser-origin policy |
+| `@fastify/helmet` | 13.2.0 | MIT; response security headers |
+| `@fastify/static` | 10.1.11 | MIT; local admin assets |
+| `@fastify/swagger` | 9.9.4 | MIT; generated API schema |
+| `pg` | 8.23.1 | MIT; parameterized PostgreSQL client and connection pool |
+| `jose` | 6.2.17 | MIT; ES256 APNs and HS256 short-lived room signatures |
+| `sharp` | 0.35.5 | Apache-2.0; bounded image decoding and metadata-free JPEG output; native dependencies have separate notices |
+| `web-push` | 4.0.0 | MPL-2.0; RFC 8291 notification encryption |
+| `http_ece` | 1.2.1 | MIT; direct development dependency for independent payload-decryption checks; also used transitively by web-push |
+| PostgreSQL | 18.7 | PostgreSQL License; transactional registry and country-schema storage |
+| PostGIS | 3.7.0 | GPL-2.0-or-later; indexed geography/radius queries |
 | LiveKit server | 1.13.11, pinned image digest | Apache-2.0; optional self-hosted voice transport |
-| Python `livekit` | 1.2.1 | Apache-2.0; optional synthetic media test, not the backend runtime |
+| Python `livekit` | 1.2.1 | Apache-2.0; optional synthetic audio test client against the JavaScript API, not backend runtime |
+| CairoSVG | 2.9.0 | LGPL-3.0-or-later; optional development-only platform-icon rendering |
 
-Upstream primary notices include [Supabase Flutter's MIT license](https://github.com/supabase/supabase-flutter/blob/main/LICENSE), [LiveKit Flutter's Apache-2.0 project](https://github.com/livekit/client-sdk-flutter), [notification plugin's BSD notice](https://github.com/MaikuB/flutter_local_notifications/blob/master/flutter_local_notifications/LICENSE), and [pycountry's LGPL license](https://github.com/pycountry/pycountry/blob/main/LICENSE.txt). Preserve each applicable license and copyright notice when distributing source/binaries. pycountry is not an MIT dependency.
+Upstream primary notices include [Fastify's MIT license](https://github.com/fastify/fastify/blob/main/LICENSE), [web-push's MPL notice](https://github.com/web-push-libs/web-push/blob/master/LICENSE), [PostgreSQL's license](https://www.postgresql.org/about/licence/), [PostGIS's licensing inventory](https://github.com/postgis/postgis/blob/master/LICENSE.TXT), [Supabase Flutter's MIT license](https://github.com/supabase/supabase-flutter/blob/main/LICENSE), [LiveKit Flutter's Apache-2.0 project](https://github.com/livekit/client-sdk-flutter), and the [notification plugin's BSD notice](https://github.com/MaikuB/flutter_local_notifications/blob/master/flutter_local_notifications/LICENSE). Preserve applicable notices when distributing source or binaries; dependency licenses are not all MIT.
+
+The backend no longer runs Python, FastAPI or SQLite. ISO country names come from Node's bundled ICU via `Intl.DisplayNames`, with a fixed country-code allowlist for schema identifiers. The one-time legacy-data importer uses Node's built-in SQLite reader only to read old local files into PostgreSQL; it is not an API storage engine. Python remains optional for artwork regeneration with CairoSVG and the standalone synthetic-audio SDK probe. Neither is needed to run the application API or backend test suite.
 
 Manrope comes from the [official Google Fonts Manrope source](https://github.com/google/fonts/tree/main/ofl/manrope). Its copyright and SIL Open Font License 1.1 are preserved with the bundled font (`admin/assets/OFL.txt` and the corresponding mobile font assets). The admin stylesheet loads `admin/assets/Manrope.ttf` locally; no Google Fonts network request is needed at runtime.
 
@@ -51,7 +57,7 @@ The Android `geolocator_android` 5.2.1 package currently declares `com.google.an
 
 ## Self-hostable infrastructure
 
-- **API and storage:** FastAPI and SQLite run locally without a paid cloud account. Country separation is implemented in the backend; production residency, deployment, encryption/backups and capacity remain operator responsibilities.
+- **API and storage:** Node.js, Fastify, PostgreSQL and PostGIS run locally without a paid cloud account. The accepted local design uses one PostgreSQL database with separate country schemas and a shared safety registry. Serializable transactions preserve cross-country safety changes; a separate migration role provisions schemas while the API uses a restricted runtime role. Schemas are logical separation, not physical country residency. Production deployment, TLS, encrypted backups, restoration and capacity remain operator responsibilities.
 - **Identity gateway:** the Supabase client is open source and the gateway can be self-hosted. Google, Apple and Facebook identities remain services operated by those companies. Self-hosting the gateway does not replace their developer registration or OAuth setup.
 - **Voice:** the optional local LiveKit server and the client are open source. A managed LiveKit account is not required to run the local call check. Production media hosting, TLS, relay/NAT traversal, bandwidth and monitoring still need infrastructure.
 - **Android push:** UnifiedPush allows a compatible distributor/provider to be chosen, including self-hosted infrastructure. A distributor must be installed and configured on the phone; the open protocol does not deliver messages without one. Google/Firebase push is not required for this chosen Android delivery path. [UnifiedPush architecture and distributors](https://unifiedpush.org/)
@@ -75,4 +81,4 @@ The local build can use the existing computer, phone and self-hosted services wi
 
 ## Release checks
 
-Regenerate the resolved dependency inventory for every release, preserve package notices, include Flutter's license display in the distributed app, and review native/transitive binaries as well as Dart packages. Keep SDK keys and signing files outside Git. The project does not grant permission to republish third-party trademarks or to imply official school, platform or map-provider endorsement.
+Regenerate the resolved dependency inventory for every release, preserve package notices, include Flutter's license display in the distributed app, and review native/transitive binaries as well as Dart/npm packages and container images. Use the committed npm lockfile with `npm ci`, check advisories with `npm audit`, and rerun the relevant tests before dependency upgrades; a clean advisory scan is not a security guarantee. Keep SDK keys, database credentials and signing files outside Git. The project does not grant permission to republish third-party trademarks or to imply official school, platform or map-provider endorsement.
