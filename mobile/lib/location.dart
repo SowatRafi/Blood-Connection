@@ -371,7 +371,7 @@ class _LocationScreenState extends State<LocationScreen> {
             ),
             const SizedBox(height: 16),
             const Notice(
-              'Automatic location detects your country and area when you open the app or search. When you travel, your donor profile moves to that country’s database. Donation pauses and safety restrictions stay with you. No background tracking or precise public location.',
+              'Automatic location detects your country and area when you open the app or search. When you travel, your donor profile is listed in your current country. Donation pauses and safety restrictions stay with you. No background tracking or precise public location.',
             ),
             const SizedBox(height: 24),
             if (widget.api.demo) ...[
