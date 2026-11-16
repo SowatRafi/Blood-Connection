@@ -8,6 +8,9 @@ import 'ui.dart';
 import 'requests.dart';
 import 'messaging.dart';
 
+/// Groups returned donors under the backend's coarse area identifier and center.
+///
+/// The center describes the shared area; it is not a donor or meeting location.
 class DonorArea {
   final String id;
   final LatLng center;
@@ -15,7 +18,9 @@ class DonorArea {
   DonorArea(this.id, this.center, this.donors);
 }
 
-// Missing/invalid coarse areas remain list-only; there is deliberately no per-person fallback or jitter.
+/// Groups valid server areas without deriving a point from individual donors.
+///
+/// Invalid or missing areas remain eligible for the list, but produce no marker.
 List<DonorArea> groupDonorAreas(List<Json> donors) {
   final areas = <String, DonorArea>{};
   for (final donor in donors) {
@@ -40,6 +45,10 @@ List<DonorArea> groupDonorAreas(List<Json> donors) {
   return areas.values.toList();
 }
 
+/// Shows exact blood-group results as coarse map areas and accessible donor cards.
+///
+/// Searches use the refreshed profile location. Panning explores those results
+/// without silently replacing the saved search origin or expanding its radius.
 class SearchScreen extends StatefulWidget {
   final Api api;
   final Json me;
@@ -71,6 +80,8 @@ class _SearchScreenState extends State<SearchScreen>
   List<Json>? donors;
   String? selectedArea, opening, error;
   bool busy = false, mapReady = false, tileError = false;
+  // Separate revisions prevent unrelated resets: queries discard stale results,
+  // tile retries recreate only the tile layer, and gestures cancel auto-framing.
   int generation = 0, tileRevision = 0, cameraInteractions = 0;
   late final AnimationController cameraMotion;
   VoidCallback? cameraTick;
@@ -96,6 +107,7 @@ class _SearchScreenState extends State<SearchScreen>
     super.dispose();
   }
 
+  // Country is part of identity even if coordinates are unchanged at a border.
   String locationKey(Json profile) =>
       '${profile['country']}:${profile['latitude']}:${profile['longitude']}';
   @override
@@ -167,6 +179,8 @@ class _SearchScreenState extends State<SearchScreen>
       (widget.me['longitude'] as num?)?.toDouble() ?? 0,
     ),
   );
+  // Fit both the requested radius and returned coarse areas, allowing controls
+  // and the initial sheet to occupy space without hiding the useful map center.
   void frameAreas({bool animate = false}) {
     if (!mounted || !mapReady) return;
     // Frame the requested radius around the search origin. Unwrapping longitude keeps
@@ -239,6 +253,7 @@ class _SearchScreenState extends State<SearchScreen>
     cameraMotion.forward(from: 0);
   }
 
+  // Slider edits stay local to the sheet; only Apply triggers another API query.
   Future<void> changeRadius() async {
     var draft = radius;
     final value = await showModalBottomSheet<double>(
@@ -292,6 +307,8 @@ class _SearchScreenState extends State<SearchScreen>
     }
   }
 
+  // Carry the current filter and a bounded recipient snapshot into the form.
+  // That screen rechecks location before submitting the actual request.
   Future<void> requestDonation(List<Json> selected) async {
     await Navigator.push(
       context,
@@ -308,6 +325,8 @@ class _SearchScreenState extends State<SearchScreen>
     );
   }
 
+  // Ask the server to create or return an authorized conversation; a search card
+  // does not itself grant access to messages, private photos or call credentials.
   Future<void> contact(Json donor) async {
     setState(() => opening = donor['id'].toString());
     try {
@@ -831,6 +850,8 @@ class _SearchScreenState extends State<SearchScreen>
     },
   );
 
+  // Marker selection filters the current result set without another network
+  // request. Clearing the selection also restores list-only donors.
   List<Json> get visibleDonors => selectedArea == null
       ? (donors ?? <Json>[])
       : (donors ?? <Json>[])
@@ -841,6 +862,8 @@ class _SearchScreenState extends State<SearchScreen>
             )
             .toList();
 
+  // The list remains useful when tiles fail and shows only discovery fields;
+  // profile photos and precise locations are not part of these donor cards.
   List<Widget> resultWidgets() {
     final visible = visibleDonors;
     return [
