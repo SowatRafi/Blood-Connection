@@ -1,4 +1,4 @@
-// Labels are an explicit allowlist so arbitrary server values never become markup.
+// Known report reasons receive consistent labels; app.js renders every label with textContent.
 export const reasonLabels = { money_request: 'Request for money', harassment: 'Harassment', misleading_information: 'Misleading information', no_show: 'Missed meeting', other: 'Other concern' };
 
 // Invalid server dates should read as unavailable instead of crashing the inbox.
@@ -26,7 +26,7 @@ export function errorMessage(payload, status) {
   return 'The request could not be completed. Please try again.';
 }
 
-// Country switching and filtering keep only records explicitly returned for this region.
+// Filter only the already-authorized inbox; country scoping belongs to the API request.
 export function visibleReports(reports, filter) {
   return reports.filter(report => filter === 'all' || report.status === 'pending');
 }
