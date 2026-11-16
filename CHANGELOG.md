@@ -4,6 +4,14 @@ An initiative by Bindubashini Boys’ 2015 & Friends.
 
 ## Unreleased
 
+### Accessible motion and security review preparation — 2026-11-16
+
+- Added finite welcome/Home entry motion, consistent outlined/selected navigation icons and a static connection illustration while preserving the approved logo.
+- Improved donor-map feedback with stable loading controls, current-result reveals, map repaint isolation and immediate reduced-motion response during camera/sheet movement.
+- Added ten motion, contrast and search-interaction tests; 157 local tests and Flutter analysis pass. Installed and checked the Android profile build on Pixel 6.
+- Corrected travel wording to match country directories backed by schemas in one database.
+- Added root security policy. The Deep audit could not start because its required managed filesystem profile is unavailable; [audit completion remains open](https://github.com/SowatRafi/Blood-Connection/issues/3). No completed security scan or no-findings result is claimed.
+
 ### Developer documentation and feature history — 2026-11-16
 
 - Expanded purpose and contract comments across mobile features, native notification bridges, browser moderation, API authorization, storage and local tooling without changing runtime behavior.

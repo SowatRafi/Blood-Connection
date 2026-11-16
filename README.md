@@ -61,6 +61,8 @@ To enable real local audio transport without a cloud account, follow [local call
 | `design-system/MASTER.md` | UI decisions and accessibility rules |
 | `CONTRIBUTING.md` | Git branches, commits, review and publication checks |
 | `docs/FEATURE-HISTORY.md` | Feature-to-code map and explicitly retrospective history provenance |
+| `SECURITY.md` | Product trust boundaries, required invariants and unresolved deployment decisions |
+| `docs/SECURITY-REVIEW.md` | Security review status, evidence limits and the outstanding audit task |
 | `CHANGELOG.md` | Recorded development milestones and release status |
 
 ## Verification

@@ -4,6 +4,18 @@
 
 This is a working local development application with the final Android APK installed on the connected Pixel 6, mobile and browser admin interfaces, a persistent API, and local calling and push services. It is not a production worldwide deployment. Real social-provider accounts are not configured; clearly labelled development entries use fictional people.
 
+## Motion and interface verification
+
+The November 16 motion pass added finite welcome/Home entry feedback, consistent navigation icon states, current-result donor reveals, stationary loading controls and reduced-motion handling during camera/sheet movement. It uses existing Flutter primitives and bundled icons without additional packages. Old result actions and outgoing private widget trees are removed immediately. First-frame contrast tests cover muted text on the canvas and mint surfaces.
+
+Local checks passed **60 backend tests, 7 admin tests and 90 Flutter tests: 157 total**, with clean Flutter analysis. Ten new tests cover immediate interaction, animation settling/disposal, first-frame contrast, motion preference changes and rapid donor filtering. The existing responsive suite covers small phones, landscape, tablets and large text. Logs remain local under ignored `artifacts/`.
+
+An Android profile build was installed on the Pixel 6 and exercised with fictional demo data: welcome/Home, tab icon selection, full-screen search, rapid blood-group changes, area-marker selection, sheet expansion/collapse, panning, zoom/recenter and returning Home. Screenshots are retained locally as `pixel-motion-welcome.png`, `pixel-motion-home.png`, `pixel-motion-map.png`, `pixel-motion-donors.png` and `pixel-motion-pan.png` under `artifacts/`. A pending donation reminder was deferred with Later; no donation or report was submitted during these checks.
+
+This is interaction/layout verification, not a quantified frame-rate benchmark. Android View `gfxinfo` does not measure all Flutter raster work, so it is not used to claim a jank percentage. Apple-device performance remains unverified. The profile APK is a test build, not a signed production release. Dependency plugin Kotlin/Java deprecation warnings remain visible in the successful build log.
+
+The requested repository security audit did not start because its coordinator requires a managed filesystem permission profile. See [security review status](SECURITY-REVIEW.md) and [the open audit task](https://github.com/SowatRafi/Blood-Connection/issues/3); test success is not security certification.
+
 ## Current backend migration
 
 The active backend is JavaScript on Node.js 24 LTS with Fastify 5.12.8, PostgreSQL 18 and PostGIS 3.7. The user selected one database with isolated country schemas. A separate registry coordinates safety and private donation history; all cross-schema changes use one transaction. This does not establish physical country residency. The runtime database role cannot create tables or rewrite audit records; a separate migration role provisions schemas.
@@ -23,7 +35,7 @@ Historical Android and initial Python-backend verification below documents the e
 | Members and administrators | Members use the mobile application; administrators have native and browser interfaces with server-enforced roles |
 | Branding and layout | User-selected blood-drop handshake logo, full-colour Android adaptive icon, crimson/warm-white/teal palette, bundled Manrope typography, single community signature, adaptive phone/tablet navigation |
 | Registration | Google/Apple/Facebook integration; necessary profile fields, metric/imperial measurement entry with account-scoped display preferences, server-calculated BMI, optional profile photo; no phone number |
-| Location and travel | Permission-based native location and country/area resolution, foreground refresh, coherent manual override, separate country databases with shared safety state |
+| Location and travel | Permission-based native location and country/area resolution, foreground refresh, coherent manual override, country schemas in one database with shared safety state |
 | Nearby donors | Full-screen pannable map, floating blood-group/radius filters, draggable donor-card sheet, stable approximate-area markers and server maximum 39 km |
 | Availability | Compact Home switch/countdown, detailed settings sheet and private history; three-calendar-month recovery with month-end clamping and voluntary automatic return |
 | Donation requests | Invitation, acceptance, decline, withdrawal, cancellation and completion; both matched participants can confirm, with one donor record/cooldown per request |
