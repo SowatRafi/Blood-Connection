@@ -4,6 +4,14 @@ An initiative by Bindubashini Boys’ 2015 & Friends.
 
 ## Unreleased
 
+### JavaScript and PostgreSQL migration — 2026-11-16
+
+- Replaced the Python/FastAPI API with JavaScript on Node.js 24 LTS and Fastify while preserving the mobile/admin contract.
+- Replaced SQLite runtime storage with PostgreSQL 18 and PostGIS 3.7, separate country schemas, restricted runtime credentials, serializable transactions and database-enforced match reservations.
+- Added an offline importer with read-only SQLite backups; copied all 78 existing local records without overwriting the original files.
+- Ported authorization, donation requests/history, private photos and evidence, report outcomes, encrypted notifications and calls, with developer-facing purpose comments and 60 backend tests.
+- Switched development tools and GitHub checks to the JavaScript backend; retained historical validation below as a record of the original baseline.
+
 ### Initial development baseline — 2026-11-16
 
 - Flutter mobile app and separate mobile/browser administrator interfaces, backed by a local FastAPI service.

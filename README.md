@@ -2,17 +2,15 @@
 
 **An initiative by Bindubashini Boys’ 2015 & Friends**
 
-A privacy-focused blood donor and seeker application, with a separate moderation console. Flutter shares the Android and iOS application; FastAPI enforces matching, account safety, and country isolation. This repository is a local development build, not a deployed emergency service.
+A privacy-focused blood donor and seeker application, with a separate moderation console. Flutter shares the Android and iOS application. JavaScript on Node.js 24 LTS and Fastify enforces matching, account safety and country routing; PostgreSQL with PostGIS stores the data. This repository is a local development build, not a deployed emergency service.
 
 ## Start locally on Windows
 
-Prerequisites: Python 3.11+ (CI uses 3.13), Flutter 3.44.2, Node.js 20 for admin tests, Android SDK, and an Android phone with USB debugging enabled. From this repository:
+Prerequisites: Node.js 24 LTS, Docker with Compose, Flutter 3.44.2, Android SDK, and an Android phone with USB debugging enabled. From this repository:
 
 ```powershell
-python -m venv backend/.venv
-backend/.venv/Scripts/python -m pip install -r backend/requirements.txt
-$env:DEMO_MODE = '1'
-backend/.venv/Scripts/python -m backend
+npm --prefix backend ci --ignore-scripts
+./tools/start-local.ps1
 ```
 
 Keep that terminal open. In another terminal:
@@ -35,7 +33,7 @@ To enable real local audio transport without a cloud account, follow [local call
 * Search fills the screen with a pannable map, floating blood-group/range filters and a draggable donor-card sheet. Area markers group nearby volunteers using fixed coarse centers; tapping one opens its donors. Results show a display name, blood group, city and approximate distance band, never phone numbers, email, body measurements or precise donor coordinates.
 * Height and weight are private profile fields; BMI is calculated for information only.
 * A donation creates a three-calendar-month minimum app pause. Availability returns after that time only if the donor's voluntary availability preference is on. Turning it off remains respected.
-* Automatic foreground location updates keep country and area aligned when travelling. A manual country/area choice resolves fresh coordinates together. A global minimum account registry preserves cooldowns and bans. Local country database files are separate; they do **not** by themselves establish geographic hosting or regulatory compliance.
+* Automatic foreground location updates keep country and area aligned when travelling. A manual country/area choice resolves fresh coordinates together. A shared registry preserves cooldowns and bans. Each country uses its own schema in one PostgreSQL database, as selected for this version. This is logical separation, not separate country hosting or geographic data residency.
 * Members use the mobile app only. Administrators can use the dedicated mobile workspace and admin website. See [location and access behavior](docs/LOCATION-AND-ACCESS.md).
 * Photos are optional and private. Only an accepted request's matched pair can view each other's photo; discovery results never include photos. Requests invite nearby volunteers, accept one donor atomically and thank the other invited donors by name inside their private inbox.
 * Accepted requests reveal an explicitly shared hospital/meeting point, a map and straight-line distance. **Go** opens Google Maps, Apple Maps or Waze for navigation.
@@ -67,7 +65,7 @@ To enable real local audio transport without a cloud account, follow [local call
 ## Verification
 
 ```powershell
-backend/.venv/Scripts/python -m unittest backend.test_app -v
+npm --prefix backend test
 node --test admin/*.test.mjs
 cd mobile
 flutter analyze
@@ -76,6 +74,8 @@ flutter build apk --debug --dart-define=DEMO_MODE=true
 ```
 
 See the backend/admin READMEs if their test discovery paths differ. iOS builds require macOS, Xcode, and Apple signing credentials. Never distribute the demo APK as a production build.
+
+Backend tests require the local database container (`docker compose -f infra/compose.local-database.yml up -d --wait`) and use only the dedicated `blood_connection_test` database. Existing SQLite data can be imported once with read-only backups; see [backend migration instructions](backend/README.md). The API runtime no longer uses Python or SQLite.
 
 `tools/check.ps1` runs the component checks together. The GitHub Actions workflow repeats them on pushes and pull requests; it does not deploy or use production secrets. That workflow must run on GitHub after the project is pushed before its remote result can be claimed.
 

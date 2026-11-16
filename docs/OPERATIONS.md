@@ -2,9 +2,11 @@
 
 ## Local development
 
-Follow the root README. Use the virtual environment's Python explicitly; activation is optional. The backend serves the admin console from the same origin, so no open CORS policy is necessary. Start the API on `127.0.0.1:8000`; `adb reverse tcp:8000 tcp:8000` connects the Pixel's loopback port to the computer without exposing the service on Wi-Fi. The phone must remain connected for that tunnel.
+Follow the root and backend READMEs. Use Node.js 24 and `npm ci` in `backend/`; PostgreSQL 18/PostGIS runs through `infra/compose.local-database.yml` on loopback port 5436. Run `npm run db:migrate` with separate migration credentials for a fresh database, then `npm start` with only the restricted runtime database credentials. The backend serves the admin console from the same origin, so no open CORS policy is necessary. Start the API on `127.0.0.1:8000`; `adb reverse tcp:8000 tcp:8000` connects the Pixel's loopback port to the computer without exposing the service on Wi-Fi. The phone must remain connected for that tunnel.
 
-The demo database persists across restarts. Mutations such as donation cooldowns, blocks, and bans therefore persist too. Use a separate disposable data directory for destructive integration tests. Do not reset a user's local data silently. Stop the service and back up the configured data directory before an intentional reset.
+The PostgreSQL named volume persists across restarts, including donations, blocks and bans. Tests use the separate `blood_connection_test` database; guarded reset requires matching runtime/migration URLs ending in `_test`. Do not reset the interactive database or remove its volume during ordinary development. Keep schema changes under version control and run them through the migration identity. Public local passwords in Compose are fixtures, never hosted-service credentials.
+
+For an existing SQLite installation, stop the old API and use `npm run db:import -- data ../artifacts/sqlite-migration-backup` from `backend/` before seeding the PostgreSQL target. The importer checks for the SQLite schema from baseline `4e90456`; older versions require upgrading first. The Node.js importer reads the old files without modifying them, creates backups, refuses a populated target and imports transactionally. Preserve backups until the import and retention plan are verified. See the backend README for environment variables and migration constraints.
 
 ## Provider configuration
 
@@ -32,18 +34,18 @@ Public demo keys for an optional loopback-only LiveKit container are provided in
 
 ## Country rollout
 
-The ISO catalog supports country selection. Production must explicitly enable supported countries. Deploying a country requires a regional database and backup location, reviewed privacy notices, local donor guidance, moderation coverage, and measured recovery procedures. The local implementation stores separate files on one computer; it is not geographically distributed.
+The ISO catalog supports country selection. Production must explicitly set `ENABLED_COUNTRIES` and provision their schemas before exposure. The user-approved local architecture uses one PostgreSQL database with country schemas plus a registry. This is logical isolation on one service, not geographic hosting or independent country databases. A country rollout still requires reviewed hosting/backup locations, privacy notices, donor guidance, moderation coverage and recovery procedures.
 
-Before distributing load across workers or hosts, replace local SQLite/in-process coordination with production regional storage and a shared global registry, distributed rate limiting, and atomic travel/account-state transitions. Keep the API contract and donor response privacy boundary. Verify cross-country ban and cooldown invariants during migration.
+Transactions, uniqueness constraints, participant reservations and PostgreSQL rate counters coordinate API workers using the same database. Test connection limits, capacity, background-worker contention, failure recovery and backups before increasing load. Independent country databases would require recoverable cross-region coordination; they are not a connection-string-only replacement for the current atomic schema transactions. Preserve the API privacy boundary and reverify travel, ban and cooldown invariants for any deployment change.
 
 ## Security operations
 
-* Run one service worker for the local SQLite implementation. Put production behind a trusted HTTPS reverse proxy with body-size and connection limits. Restrict trusted hosts and forward headers only from the known proxy.
+* Put production behind a trusted HTTPS reverse proxy with connection/body-size limits. The Fastify runtime does not trust forwarded headers by default. Configure any proxy trust explicitly for that deployment. Use verified TLS for remote PostgreSQL connections; do not disable certificate verification.
 * Keep demo mode off. Verify demo tokens fail in a production-configured test and the public health response reports demo false.
-* Use encrypted volumes and backups. Restrict service account access. Rotate provider/media credentials and remove departed administrators from the allowlist.
+* Use encrypted volumes and backups. The application role must not own schemas or have superuser/DDL privileges; migration credentials stay out of the runtime environment. Rotate unique database/provider/media credentials and remove departed administrators from the allowlist. Enforce administrator MFA before launch.
 * Do not log bearer tokens, private profile bodies, location, conversation text, or report evidence. Keep audit events available only to authorized operators.
 * Establish retention periods, backup expiry, account-deletion follow-through, report appeals, and an incident response contact before launch.
-* Test backup restoration into an isolated environment. SQLite online backup or a stopped-service snapshot avoids inconsistent live file copies; include all country databases and the global registry together.
+* Use PostgreSQL `pg_dump`/`pg_restore` or a correctly configured physical backup/PITR system, then test restoration into an isolated service. Include the registry and all country schemas in the same consistent backup. Preserve provisioning/role configuration separately, and protect backup files as health/private data. Do not copy a running PostgreSQL data directory as if it were a standalone database file.
 
 ## iOS release
 

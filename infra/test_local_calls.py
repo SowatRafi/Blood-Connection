@@ -1,31 +1,40 @@
 """Verify real local media with synthetic PCM, without opening a microphone or speaker.
 
-Run `python -m infra.test_local_calls` after starting compose.local-calls.yml.
-The API uses disposable databases; only the loopback LiveKit service is shared.
+Run `node backend/scripts/check-calls.js` after starting the local PostgreSQL and
+LiveKit containers. The launcher starts the JavaScript API against its guarded
+test database; this module is an optional SDK test client, not a backend service.
 """
 
 import asyncio
 from array import array
 from math import pi, sin
-from pathlib import Path
-import tempfile
-
-from fastapi.testclient import TestClient
+import json
+import os
+from urllib.parse import urlsplit
+from urllib.request import Request, HTTPRedirectHandler, build_opener
 from livekit import rtc
 
-from backend.app import Settings, create_app
+
+class NoRedirect(HTTPRedirectHandler):
+    """A local API probe must not forward its public demo credentials to another origin."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
 
 
-async def verify_media(client: TestClient):
+async def verify_media(api_url: str):
     """Obtain credentials through real invitation/acceptance endpoints, then relay audio."""
     seeker = {"Authorization": "Bearer demo-seeker", "X-Country": "BD"}
     donor = {"Authorization": "Bearer demo-donor", "X-Country": "BD"}
 
     # Credential issuance is exercised through the app instead of minting unrestricted JWTs.
     def request(method, path, headers, body=None):
-        response = client.request(method, f"/api/v1{path}", headers=headers, json=body)
-        response.raise_for_status()
-        return response.json()
+        """Use HTTP against the JavaScript service; no Python application code is imported."""
+        data = json.dumps(body or {}).encode() if method == "POST" else None
+        call = Request(f"{api_url}/api/v1{path}", data=data, method=method,
+                       headers={**headers, "Content-Type": "application/json"})
+        with build_opener(NoRedirect).open(call, timeout=10) as response:
+            return json.load(response)
 
     conversation = request("POST", "/conversations", seeker, {"donor_id": "donor"})
     call = request("POST", f"/conversations/{conversation['id']}/calls", seeker)
@@ -106,11 +115,13 @@ async def verify_media(client: TestClient):
 
 
 def main():
-    """A disposable API datastore keeps the user's demo accounts and reports untouched."""
-    with tempfile.TemporaryDirectory(prefix="blood-connection-call-qa-") as directory:
-        settings = Settings(data_dir=Path(directory), demo=True, livekit_url="ws://127.0.0.1:7880", livekit_key="bloodconnection-local", livekit_secret="local-development-only-blood-connection-not-for-production-2015")
-        with TestClient(create_app(settings)) as client:
-            asyncio.run(verify_media(client))
+    """Only the Node launcher supplies an isolated loopback API; never default to the user's live demo."""
+    api_url = os.environ.get("BLOOD_CALL_TEST_API_URL", "")
+    parsed = urlsplit(api_url)
+    if (parsed.scheme != "http" or parsed.hostname != "127.0.0.1" or not parsed.port
+            or parsed.path or parsed.username or parsed.password or parsed.query or parsed.fragment):
+        raise RuntimeError("Launch this diagnostic with node backend/scripts/check-calls.js")
+    asyncio.run(verify_media(api_url))
 
 
 if __name__ == "__main__":

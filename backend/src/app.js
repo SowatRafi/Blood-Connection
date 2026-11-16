@@ -89,6 +89,7 @@ export async function createApp(overrides = {}, options = {}) {
   await app.register(staticFiles, { root: fileURLToPath(new URL('../../admin/', import.meta.url)), prefix: '/admin/', index: ['index.html'], redirect: true });
 
   let timer, running;
+  // One local pass runs at a time; durable database leases handle additional processes and retries after failure.
   const work = async () => {
     if (running) return;
     running = (async () => {

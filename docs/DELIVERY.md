@@ -4,6 +4,18 @@
 
 This is a working local development application with the final Android APK installed on the connected Pixel 6, mobile and browser admin interfaces, a persistent API, and local calling and push services. It is not a production worldwide deployment. Real social-provider accounts are not configured; clearly labelled development entries use fictional people.
 
+## Current backend migration
+
+The active backend is JavaScript on Node.js 24 LTS with Fastify 5.12.8, PostgreSQL 18 and PostGIS 3.7. The user selected one database with isolated country schemas. A separate registry coordinates safety and private donation history; all cross-schema changes use one transaction. This does not establish physical country residency. The runtime database role cannot create tables or rewrite audit records; a separate migration role provisions schemas.
+
+The importer preserved all 78 existing local records, including account states and historical evidence, and retained read-only SQLite backups under ignored `artifacts/`. The original SQLite files remain untouched. The full local check passed **60 JavaScript backend tests, 7 admin tests and 80 Flutter tests: 147 total**, with clean Flutter analysis (`artifacts/javascript-full-checks.log`). Backend checks include concurrent donation acceptance/confirmation, review rollback, device ownership, encrypted payload verification and country travel. `npm audit --omit=dev` reported no known runtime dependency vulnerabilities at this check; this is not a guarantee that the application has no vulnerabilities. GitHub Actions records remote results for the migration branch separately.
+
+The existing Pixel 6 app connected successfully to the JavaScript API and displayed Nadia’s imported cooldown on Home (`artifacts/pixel-javascript-backend.png`). Read-only API checks confirmed the saved donation and report history. On the Pixel, the map loaded the PostGIS search response and showed the available O+ donor while excluding the imported cooldown account (`artifacts/pixel-postgis-search.png`).
+
+The JavaScript diagnostic also passed real local ntfy delivery/decryption, including a review notification after travel and during cooldown (`artifacts/javascript-relay-check.log`). The updated optional media probe received five non-silent audio frames through LiveKit and confirmed both participants disconnected after call end (`artifacts/javascript-media-check.log`). It exercised disposable test accounts, not the interactive database.
+
+Historical Android and initial Python-backend verification below documents the earlier baseline. The new backend preserves the same `/api/v1` contract and loopback port; it does not require rebuilding the unchanged Flutter client.
+
 ## Implemented scope
 
 | Capability | Local implementation |
@@ -23,11 +35,11 @@ This is a working local development application with the final Android APK insta
 | Companion devices | Safe phone-notification actions for watches and external navigation handoff for cars; no standalone watch or car application |
 | Documentation | API, architecture, privacy, operations, testing, location, notifications, platforms and open-source dependencies |
 
-Country-separated local files demonstrate routing; they do not establish physical data residency. The recovery period is an application policy and does not determine clinical eligibility. BMI is informational.
+Country schemas provide logical routing and separation within one database; they do not establish physical data residency. The recovery period is an application policy and does not determine clinical eligibility. BMI is informational.
 
 ## Verification actually performed
 
-The latest full `tools/check.ps1` run passed **50 backend tests, 7 admin/browser tests and 80 Flutter tests: 137 total**, recorded in `artifacts/review-polish-checks.log`. Flutter analysis found no issues; the existing Python environment previously passed `pip check`. Tests cover request races, photo authorization and revocation, country moves, cooldown boundaries, device ownership, push delivery, notification enrollment/sign-out races, administrator access, small-screen/large-text forms and tablet navigation. Map tests cover stable coarse areas, polar/date-line behavior, stale searches, radius confirmation, initial tile decoding, independent map/sheet gestures, immediate donor-card previews, visible zoom controls and unobstructed attribution. New tests check interruptible 280ms camera motion, reduced motion and preserving a user's pan after a delayed search. Unit conversion/Profile tests cover canonical precision, BMI, remembered preferences and travel-safe saving. A final two-decimal display refinement passed all four relevant measurement/Profile tests again before rebuilding (`artifacts/measurement-final-check.log`).
+The original baseline `tools/check.ps1` run passed **50 backend tests, 7 admin/browser tests and 80 Flutter tests: 137 total**, recorded in `artifacts/review-polish-checks.log`. Flutter analysis found no issues; the existing Python environment previously passed `pip check`. Tests cover request races, photo authorization and revocation, country moves, cooldown boundaries, device ownership, push delivery, notification enrollment/sign-out races, administrator access, small-screen/large-text forms and tablet navigation. Map tests cover stable coarse areas, polar/date-line behavior, stale searches, radius confirmation, initial tile decoding, independent map/sheet gestures, immediate donor-card previews, visible zoom controls and unobstructed attribution. New tests check interruptible 280ms camera motion, reduced motion and preserving a user's pan after a delayed search. Unit conversion/Profile tests cover canonical precision, BMI, remembered preferences and travel-safe saving. A final two-decimal display refinement passed all four relevant measurement/Profile tests again before rebuilding (`artifacts/measurement-final-check.log`).
 
 Report tests cover owner-only list/detail/evidence across travel, safe outcomes without internal notes, transactional review/event/outbox rollback and concurrent resolution, notification parsing/deferred navigation, large text, private image cleanup and report routing without mutating the active country. The encrypted local ntfy relay check also passed report-review delivery after country changes. Primary/muted text and crimson/teal button pairs measure at least 5.4:1 contrast against their intended surfaces; this is a light-theme implementation.
 

@@ -15,18 +15,15 @@ docker compose -f infra/compose.local-calls.yml ps
 
 Only `127.0.0.1:7880/tcp` (signaling/API) and `127.0.0.1:7881/tcp` (WebRTC media) are published. Nothing is published on the LAN or Internet. The server advertises a loopback address and clients use TCP because no UDP ports are exposed. The container does not automatically restart after a reboot.
 
-Restart the backend with these environment values:
+The JavaScript/Fastify API uses Node 24 and the migrated PostgreSQL database. Start it with the local calling configuration:
 
 ```powershell
-$env:DEMO_MODE = '1'
-$env:HOST = '127.0.0.1'
-$env:LIVEKIT_URL = 'ws://127.0.0.1:7880'
-$env:LIVEKIT_API_KEY = 'bloodconnection-local'
-$env:LIVEKIT_API_SECRET = 'local-development-only-blood-connection-not-for-production-2015'
-python -m backend
+./tools/start-local.ps1 -Calls
 ```
 
 The backend now reports `calling_enabled: true`. It issues short-lived, room-scoped, microphone-only tokens after the receiving person accepts the invitation. The media server's API secret never goes to mobile clients.
+
+`backend/src/calls.js` authorizes each call transition and status read inside PostgreSQL transactions. A conversation row lock prevents concurrent invitations from creating multiple active calls. `backend/src/integrations.js` signs five-minute tokens with `jose`; the same module uses native bounded `fetch` requests for LiveKit participant removal and room deletion. Ending, blocking, banning, travel or account deletion writes durable cleanup work before the media request is attempted. Failed removal remains queued for the worker rather than being reported as successful revocation.
 
 ## Connected Android phone
 
@@ -38,20 +35,27 @@ Keep the phone connected over USB with debugging approved, and reverse both medi
 & "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" reverse tcp:7881 tcp:7881
 ```
 
-Run a demo build of the mobile app. Calls need two different signed-in demo roles or two configured real accounts; one user cannot call themselves. The receiving app must be open because background push delivery is not configured in the local build. A native microphone permission prompt appears when joining a voice call; the person using the phone controls that permission.
+Run a demo build of the mobile app. Calls need two different signed-in demo roles or two configured real accounts; one user cannot call themselves. The receiving app must be open because background incoming-call delivery is not implemented. Donation and report-review notifications are separate and do not provide VoIP delivery. A native microphone permission prompt appears when joining a voice call; the person using the phone controls that permission.
 
 The USB forwarding route is provided for device testing. A host-side synthetic test alone does **not** prove an audible two-device phone call. Verify Android permissions, audio routing, TCP ICE connectivity and two-way sound on actual devices before release. An iOS device build requires macOS/Xcode and its own reachable development media service.
 
 ## Synthetic transport check
 
-This check does not capture or play sound. It creates disposable backend databases, creates and accepts an invitation through the real API, connects two LiveKit SDK participants, publishes a generated PCM tone, and asserts that the second participant receives at least five non-silent decoded frames. It also ends the call through the backend and checks that both participants disconnect.
+This optional diagnostic does not capture or play sound. The Node launcher resets only the guarded `blood_connection_test` database and starts a separate JavaScript API on a random loopback port. A small Python LiveKit SDK client obtains credentials through that API, connects two participants, publishes a generated PCM tone, and asserts that the second participant receives at least five non-silent decoded frames. It ends the call through the JavaScript backend and checks that both participants disconnect.
+
+Python is used only for this optional audio probe. It does not host the API, access PostgreSQL, or import FastAPI/the retired backend. Normal application startup and the automated backend suite require Node.js, not Python.
 
 ```powershell
-python -m pip install -r backend/requirements.txt -r infra/requirements-call-test.txt
-python -m infra.test_local_calls
+. ./tools/use-node.ps1
+docker compose -f infra/compose.local-database.yml up -d --wait
+docker compose -f infra/compose.local-calls.yml up -d
+python -m pip install -r infra/requirements-call-test.txt
+node backend/scripts/check-calls.js
 ```
 
-Verified on 15 November 2026 with Docker Desktop server 29.8.2, LiveKit server 1.13.11 and Python LiveKit SDK 1.2.1. Both participants joined and the synthetic audio check passed. Test state does not modify the main demo users, messages or reports.
+Set `PYTHON` to a specific interpreter path if the optional SDK is installed in a separate environment. The probe uses LiveKit server 1.13.11 and Python LiveKit SDK 1.2.1. Do not run it concurrently with the backend suite or relay diagnostic because they share the isolated test database. The test helper rejects a database name without the `_test` suffix. Test state does not modify the interactive demo users, messages or reports.
+
+On 16 November 2026 the Node-backed diagnostic passed: both participants joined, the receiver decoded five non-silent synthetic frames, and ending the call through the JavaScript API disconnected both participants. No microphone or speaker was accessed. Local evidence: `artifacts/javascript-media-check.log`. This validates the local transport and cleanup path, not two-way audible calls on physical phones.
 
 The SDK may print data-channel closure messages when the backend removes participants. Those messages accompany intentional transport teardown; the test still must print both PASS lines and exit successfully.
 

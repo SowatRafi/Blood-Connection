@@ -40,6 +40,8 @@ Logging manually and later confirming the same real-world donation through a req
 
 ## Storage and verification
 
-The shared registry stores donation history and confirmation states so travel cannot lose history or reset the pause. Country-specific request records still retain their regional boundary; a private completion receipt is an intentional global matched-participant record. Ordinary donor search and admin moderation endpoints expose no facility/location history. Production storage, residency and retention decisions must account for this additional health-related data.
+The PostgreSQL `registry` schema stores donation history and confirmation states so travel cannot lose history or reset the pause. Country-specific request records remain in their country schema within the same database; a private completion receipt is an intentional global matched-participant record. Ordinary donor search and admin moderation endpoints expose no facility/location history. Production storage, residency and retention decisions must account for this additional health-related data.
+
+Serializable transactions and unique indexes enforce one record per completed request and one committed manual intent per actor/idempotency key. Receipt state, donor cooldown and history commit together; concurrent donor/seeker confirmations cannot partially update them. This is a logical schema boundary, not geographic residency.
 
 See [API contract](API.md), [privacy inventory](PRIVACY.md) and [verification guide](TESTING.md). Test cases and walkthroughs describe expected behavior; [delivery notes](DELIVERY.md) separately record what was actually verified.

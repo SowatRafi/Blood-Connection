@@ -1,6 +1,6 @@
 # Admin verification record
 
-Verified on 15 November 2026 with Chrome, the real FastAPI backend, and isolated fictional data under `artifacts/admin-qa-data` on port 8001. The main application's demo data on port 8000 was not modified by these checks.
+Historical baseline verification on 15 November 2026 used Chrome, the then-current FastAPI backend, and isolated fictional data under `artifacts/admin-qa-data` on port 8001. The main application's demo data on port 8000 was not modified by these checks.
 
 ## Automated checks
 
